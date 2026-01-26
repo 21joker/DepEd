@@ -183,6 +183,7 @@ class RequestsController extends AppController
             ->where(['role IN' => ['Administrator', 'Approver']])
             ->orderAsc('id')
             ->all();
+        $admins = $this->orderApproverHierarchy($admins);
 
         $lastRequestId = $this->request->getSession()->read('last_request_id');
         $lastRequest = null;
@@ -410,6 +411,7 @@ class RequestsController extends AppController
             ->where(['role IN' => ['Administrator', 'Approver']])
             ->orderAsc('id')
             ->all();
+        $admins = $this->orderApproverHierarchy($admins);
 
         $lastRequest = $requestEntity;
         $approvalStatuses = [];
@@ -675,6 +677,7 @@ class RequestsController extends AppController
             ->where(['role IN' => ['Administrator', 'Approver']])
             ->orderAsc('id')
             ->all();
+        $admins = $this->orderApproverHierarchy($admins);
         } catch (\Throwable $e) {
             // Ignore if users table isn't available.
         }
@@ -813,7 +816,46 @@ class RequestsController extends AppController
         }
 
         $this->loadModel('RequestApprovals');
+        $this->loadModel('Users');
         $adminId = (int)$this->Auth->user('id');
+
+        $hierarchy = $this->getApproverHierarchy();
+        $currentUser = $this->Users->find()
+            ->select(['id', 'username'])
+            ->where(['id' => $adminId])
+            ->first();
+        $currentRank = $this->getApproverRank($currentUser->username ?? null, $hierarchy);
+        if ($currentRank !== null) {
+            $admins = $this->Users->find()
+                ->select(['id', 'username'])
+                ->where(['role IN' => ['Administrator', 'Approver']])
+                ->all();
+            $lowerAdminIds = [];
+            foreach ($admins as $admin) {
+                $rank = $this->getApproverRank($admin->username ?? null, $hierarchy);
+                if ($rank !== null && $rank < $currentRank) {
+                    $lowerAdminIds[] = (int)$admin->id;
+                }
+            }
+            if (!empty($lowerAdminIds)) {
+                $approvedLower = $this->RequestApprovals->find()
+                    ->select(['admin_user_id'])
+                    ->where([
+                        'request_id' => $requestEntity->id,
+                        'status' => 'approved',
+                        'admin_user_id IN' => $lowerAdminIds,
+                    ])
+                    ->enableHydration(false)
+                    ->all()
+                    ->extract('admin_user_id')
+                    ->toList();
+                $pendingLower = array_diff($lowerAdminIds, array_map('intval', $approvedLower));
+                if (!empty($pendingLower)) {
+                    $this->Flash->error('Please wait for lower-level approvals before approving.');
+                    return $this->redirect(['action' => 'pending']);
+                }
+            }
+        }
 
         $existing = $this->RequestApprovals->find()
             ->where(['request_id' => $requestEntity->id, 'admin_user_id' => $adminId])
@@ -1098,6 +1140,72 @@ class RequestsController extends AppController
         }
 
         $this->Notifications->saveMany($notifications);
+    }
+
+    private function orderApproverHierarchy(iterable $admins): array
+    {
+        $adminList = is_array($admins) ? $admins : iterator_to_array($admins, false);
+        if (empty($adminList)) {
+            return [];
+        }
+
+        $hierarchy = $this->getApproverHierarchy();
+
+        $rankFor = function ($admin) use ($hierarchy): array {
+            $label = strtoupper(trim((string)($admin->username ?? '')));
+            $rank = $this->getApproverRank($label, $hierarchy);
+            if ($rank !== null) {
+                return [$rank, $label, (int)($admin->id ?? 0)];
+            }
+            return [PHP_INT_MAX, $label, (int)($admin->id ?? 0)];
+        };
+
+        usort($adminList, function ($a, $b) use ($rankFor): int {
+            [$rankA, $labelA, $idA] = $rankFor($a);
+            [$rankB, $labelB, $idB] = $rankFor($b);
+            if ($rankA !== $rankB) {
+                return $rankA <=> $rankB;
+            }
+            $labelCompare = strcmp($labelA, $labelB);
+            if ($labelCompare !== 0) {
+                return $labelCompare;
+            }
+            return $idA <=> $idB;
+        });
+
+        return $adminList;
+    }
+
+    private function getApproverHierarchy(): array
+    {
+        return [
+            'PO' => 1,
+            'SMMNE' => 2,
+            'AO' => 3,
+            'BUDGET' => 4,
+            'ACCOUNTANT' => 5,
+            'ASDS' => 6,
+            'SDS' => 7,
+        ];
+    }
+
+    private function getApproverRank(?string $username, array $hierarchy): ?int
+    {
+        $label = strtoupper(trim((string)$username));
+        if ($label === '') {
+            return null;
+        }
+        foreach ($hierarchy as $key => $rank) {
+            if ($label === $key) {
+                return $rank;
+            }
+        }
+        foreach ($hierarchy as $key => $rank) {
+            if (strpos($label, $key) !== false) {
+                return $rank;
+            }
+        }
+        return null;
     }
 
     private function ensureAdmin()

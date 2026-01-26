@@ -25,7 +25,7 @@ $cakeDescription = 'SDO ACTIVTITY';
         <?= $cakeDescription ?>:
         <?= $this->fetch('title') ?>
     </title>
-    <?= $this->Html->meta('icon') ?>
+    <?= $this->Html->meta('icon', 'sdo.ico') ?>
     <meta name="csrf-token" content="<?= h($this->request->getAttribute('csrfToken')) ?>">
 
 

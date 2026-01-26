@@ -66,7 +66,7 @@ endif;
         SDO SANTIAGO ACTIVITY PROPOSAL
         <?= $this->fetch('title') ?>
     </title>
-    <?= $this->Html->meta('icon') ?>
+    <?= $this->Html->meta('icon', 'sdo.ico') ?>
 
     <?= $this->Html->css(['normalize.min', 'milligram.min', 'fonts', 'cake', 'home']) ?>
 
