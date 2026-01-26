@@ -87,6 +87,12 @@ function _approval_label(?string $status): string
     text-align: center;
     line-height: 1.2;
 }
+.proposal-title .headline {
+    font-family: "Old English Text MT", "UnifrakturCook", "Times New Roman", serif;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 6px 0;
+}
 .proposal-title .seal {
     max-width: 90px;
     margin: 0 auto 8px;
@@ -131,6 +137,16 @@ function _approval_label(?string $status): string
     padding: 4px;
     font-size: 12px;
 }
+.proposal-footer {
+    margin-top: 10px;
+    border-top: 1px solid #2b2b2b;
+    padding-top: 6px;
+}
+.proposal-footer img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
 </style>
 
 <div class="container-fluid p-0">
@@ -140,16 +156,15 @@ function _approval_label(?string $status): string
         <div class="card-body">
           <div class="proposal-title mb-3">
             <div class="seal">
-              <?= $this->Html->image('sdo.jpeg', [
-                  'pathPrefix' => 'dist/img/',
+              <?= $this->Html->image('deped.png', [
                   'alt' => 'Seal',
                   'class' => 'img-fluid'
               ]) ?>
             </div>
-            <div class="small">Republic of the Philippines</div>
-            <div class="sub">Department of Education</div>
+            <div class="headline">Republic of the Philippines</div>
+            <div class="headline">Department of Education</div>
             <div class="small">Region II - Cagayan Valley</div>
-            <div class="sub">Schools Division of Santiago City</div>
+            <div class="sub">SCHOOLS DIVISION OF SANTIAGO CITY</div>
             <div class="small mt-2">Enclosure 1</div>
             <div class="main">Activity Proposal</div>
             <div class="small">For GAS-MOOE and Centrally Managed and Funded Activities</div>
@@ -255,6 +270,12 @@ function _approval_label(?string $status): string
           <?php if ($detailsText === ''): ?>
             <div class="alert alert-warning mb-0">No details saved for this request.</div>
           <?php endif; ?>
+
+          <div class="proposal-footer">
+            <?= $this->Html->image('footer.jpg', [
+                'alt' => 'Footer',
+            ]) ?>
+          </div>
         </div>
       </div>
     </div>

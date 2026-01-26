@@ -9,12 +9,28 @@ $(function () {
         if (!isEnroll) {
             $('#manage-password-fields').show();
             resetMode = false;
+            $('#reset-mode').val('0');
             $('#users-form')
                 .children('label, input, select, textarea, .form-group')
                 .show();
             $('#password').val('');
-            $('#old-password').val('');
-            $('#new-password').val('');
+            $('#reset-email').val('');
+        } else {
+            $('#users-form')[0].reset();
+            $('#username-display-enroll').val('');
+            $('#first-name-enroll').val('');
+            $('#middle-initial-enroll').val('');
+            $('#last-name-enroll').val('');
+            $('#suffix-enroll').val('');
+            $('#degree-enroll').val('');
+            $('#position-enroll').val('');
+            $('#email-address-enroll').val('');
+            $('#level-of-governance-enroll').val('');
+            $('#role-display-enroll').val('User');
+            $('#password-enroll').val('');
+            $('#retype-password-enroll').val('');
+            $('#username').val('');
+            $('#role').val('');
         }
         $('#users-modal').modal('show');
     });
@@ -27,33 +43,37 @@ $(function () {
         var id = $(this).data('id');
         $('#modal-title').html('Update User');
         $.ajax({
-            url: '/usermngt/Users/edit/' + id,
+            url: '/usermngt/Users/edit/' + id + '?_=' + Date.now(),
             type: "GET",
             dataType: 'json'
         })
             .done(function(data, textStatus, jqXHR){
                 if(data!=''){
-                    $('#username').val(data.username);
+                    $('#username-manage').val(data.username);
                     $('#original-username').val(data.username);
                     $('#password').val('');
                     $('#retype-password').val('');
-                    $('#first-name').val(data.first_name || '');
-                    $('#middle-initial').val(data.middle_initial || '');
-                    $('#last-name').val(data.last_name || '');
-                    $('#email-address').val(data.email_address || '');
-                    $('#level-of-governance').val(data.level_of_governance || '');
-                    $('#role').val(data.role);
+                    $('#first-name-manage').val(data.first_name || '');
+                    $('#middle-initial-manage').val(data.middle_initial || '');
+                    $('#last-name-manage').val(data.last_name || '');
+                    $('#suffix-manage').val(data.suffix || '');
+                    $('#degree-manage').val(data.degree || '');
+                    $('#position-manage').val(data.position || '');
+                    $('#email-address-manage').val(data.email_address || '');
+                    $('#reset-email').val(data.email_address || '');
+                    $('#level-of-governance-manage').val(data.level_of_governance || '');
+                    $('#role-manage').val(data.role);
                     $('#id').val(data.id);
                     $('#manage-password-fields').hide();
                     resetMode = false;
+                    $('#reset-mode').val('0');
                     $('#manage-password-fields').prevAll('label, input, select, textarea').show();
                     $('#manage-password-fields').nextAll('label, input, select, textarea').show();
                     $('#users-form')
                         .children('label, input, select, textarea, .form-group')
                         .show();
                     $('#password').val('');
-                    $('#old-password').val('');
-                    $('#new-password').val('');
+                    $('#reset-email').val('');
                     $('#users-modal').modal('show');
                 }
             })
@@ -70,32 +90,77 @@ $(function () {
         var id = $(this).data('id');
         $('#modal-title').html('Reset Password');
         $.ajax({
-            url: '/usermngt/Users/edit/' + id,
+            url: '/usermngt/Users/edit/' + id + '?_=' + Date.now(),
             type: "GET",
             dataType: 'json'
         })
             .done(function(data, textStatus, jqXHR){
                 if(data!=''){
-                    $('#username').val(data.username);
+                    $('#username-manage').val(data.username);
                     $('#original-username').val(data.username);
                     $('#password').val('');
                     $('#retype-password').val('');
-                    $('#first-name').val(data.first_name || '');
-                    $('#middle-initial').val(data.middle_initial || '');
-                    $('#last-name').val(data.last_name || '');
-                    $('#email-address').val(data.email_address || '');
-                    $('#level-of-governance').val(data.level_of_governance || '');
-                    $('#role').val(data.role);
+                    $('#first-name-manage').val(data.first_name || '');
+                    $('#middle-initial-manage').val(data.middle_initial || '');
+                    $('#last-name-manage').val(data.last_name || '');
+                    $('#suffix-manage').val(data.suffix || '');
+                    $('#degree-manage').val(data.degree || '');
+                    $('#position-manage').val(data.position || '');
+                    $('#email-address-manage').val(data.email_address || '');
+                    $('#level-of-governance-manage').val(data.level_of_governance || '');
+                    $('#role-manage').val(data.role);
                     $('#id').val(data.id);
                     $('#manage-password-fields').show();
                     resetMode = true;
+                    $('#reset-mode').val('1');
                     $('#users-form')
                         .find('label, input, select, textarea, .form-group')
                         .not('#manage-password-fields, #manage-password-fields *')
                         .hide();
                     $('#users-modal').modal('show');
-                    $('#old-password').focus();
+                    $('#reset-email').focus();
                 }
+            })
+            .fail(function(jqXHR, textStatus, errorThrown){
+                alert(errorThrown || 'error');
+            });
+    });
+
+    $('#users-table').on('click', '.view-user', function (e) {
+        e.preventDefault();
+        if (isEnroll) {
+            return;
+        }
+        var id = $(this).data('id');
+        $.ajax({
+            url: '/usermngt/Users/edit/' + id + '?_=' + Date.now(),
+            type: "GET",
+            dataType: 'json'
+        })
+            .done(function(data, textStatus, jqXHR){
+                if (!data) {
+                    return;
+                }
+                var parts = [];
+                if (data.first_name) { parts.push(data.first_name); }
+                if (data.middle_initial) { parts.push(data.middle_initial); }
+                if (data.last_name) { parts.push(data.last_name); }
+                var fullName = parts.join(' ');
+                if (data.suffix) {
+                    fullName = fullName ? (fullName + ' ' + data.suffix) : data.suffix;
+                }
+
+                $('#view-username').text(data.username || '—');
+                $('#view-fullname').text(fullName || data.username || '—');
+                $('#view-suffix').text(data.suffix || '—');
+                $('#view-degree').text(data.degree || '—');
+                $('#view-position').text(data.position || '—');
+                $('#view-email').text(data.email_address || '—');
+                $('#view-level').text(data.level_of_governance || '—');
+                $('#view-role').text(data.role || '—');
+                $('#view-created').text(data.created || '—');
+                $('#view-modified').text(data.modified || '—');
+                $('#users-view-modal').modal('show');
             })
             .fail(function(jqXHR, textStatus, errorThrown){
                 alert(errorThrown || 'error');
@@ -105,20 +170,20 @@ $(function () {
     $('#users-form').on('submit',function (e) {
         e.preventDefault();
         if (isEnroll) {
-            var password = $('#password').val();
-            var retype = $('#retype-password').val();
+            var password = $('#password-enroll').val();
+            var retype = $('#retype-password-enroll').val();
             if (password !== retype) {
                 alert('Password does not match.');
                 return;
             }
-            var username = $('#username-display').val();
-            var email = $('#email-address').val();
+            var username = $('#username-display-enroll').val();
+            var email = $('#email-address-enroll').val();
             if (username) {
                 $('#username').val(username);
             } else if (email) {
                 $('#username').val(email);
             }
-            var role = $('#role-display').val();
+            var role = $('#role-display-enroll').val();
             if (role) {
                 $('#role').val(role);
             } else {
@@ -126,26 +191,54 @@ $(function () {
             }
         }
         if (!isEnroll) {
-            var usernameValue = $('#username').val();
+            var usernameValue = $('#username-manage').val();
             if (!usernameValue) {
                 var originalUsername = $('#original-username').val();
                 if (originalUsername) {
-                    $('#username').val(originalUsername);
+                    $('#username-manage').val(originalUsername);
                 }
             }
             if (resetMode) {
-                var oldPassword = $('#old-password').val();
-                var newPassword = $('#new-password').val();
-                if (!oldPassword || !newPassword) {
-                    alert('Old and New password are required.');
+                var resetEmail = $('#reset-email').val();
+                if (!resetEmail) {
+                    alert('Email address is required.');
                     return;
                 }
-                $('#password').val(newPassword);
+                $('#password').val('');
             } else {
                 $('#password').val('');
             }
         }
         var fd = new FormData(this);
+        var fieldMap = isEnroll ? {
+            first_name: '#first-name-enroll',
+            middle_initial: '#middle-initial-enroll',
+            last_name: '#last-name-enroll',
+            suffix: '#suffix-enroll',
+            degree: '#degree-enroll',
+            position: '#position-enroll',
+            email_address: '#email-address-enroll',
+            level_of_governance: '#level-of-governance-enroll',
+            role: '#role',
+            username: '#username'
+        } : {
+            first_name: '#first-name-manage',
+            middle_initial: '#middle-initial-manage',
+            last_name: '#last-name-manage',
+            suffix: '#suffix-manage',
+            degree: '#degree-manage',
+            position: '#position-manage',
+            email_address: '#email-address-manage',
+            level_of_governance: '#level-of-governance-manage',
+            role: '#role-manage',
+            username: '#username-manage'
+        };
+        Object.keys(fieldMap).forEach(function (name) {
+            var el = document.querySelector(fieldMap[name]);
+            if (el) {
+                fd.set(name, el.value || '');
+            }
+        });
         var id = $('#id').val();
         var url;
         if(id != ''){
@@ -164,9 +257,26 @@ $(function () {
         .done(function(data, textStatus, jqXHR){
             if(data.status=='success'){
                 $('#users-modal').modal('hide');
+                if (isEnroll) {
+                    $('#users-form')[0].reset();
+                    $('#username-display-enroll').val('');
+                    $('#first-name-enroll').val('');
+                    $('#middle-initial-enroll').val('');
+                    $('#last-name-enroll').val('');
+                    $('#suffix-enroll').val('');
+                    $('#degree-enroll').val('');
+                    $('#position-enroll').val('');
+                    $('#email-address-enroll').val('');
+                    $('#level-of-governance-enroll').val('');
+                    $('#role-display-enroll').val('User');
+                    $('#password-enroll').val('');
+                    $('#retype-password-enroll').val('');
+                    $('#username').val('');
+                    $('#role').val('');
+                }
                 getUsers();
             }
-            if (data.status === 'error' && data.errors) {
+            if (data && data.status === 'error' && data.errors) {
                 alert(data.message + "\n" + JSON.stringify(data.errors));
             } else {
                 alert(data.message);
@@ -200,6 +310,32 @@ $(function () {
 
         }
     });
+
+    $('#users-modal').on('hidden.bs.modal', function () {
+        if (!isEnroll) {
+            return;
+        }
+        var form = $('#users-form')[0];
+        if (form) {
+            form.reset();
+        }
+        $('#username-display-enroll').val('');
+        $('#first-name-enroll').val('');
+        $('#middle-initial-enroll').val('');
+        $('#last-name-enroll').val('');
+        $('#suffix-enroll').val('');
+        $('#degree-enroll').val('');
+        $('#position-enroll').val('');
+        $('#email-address-enroll').val('');
+        $('#level-of-governance-enroll').val('');
+        $('#role-display-enroll').val('User');
+        $('#password-enroll').val('');
+        $('#retype-password-enroll').val('');
+        $('#username').val('');
+        $('#role').val('');
+        $('#id').val('');
+        $('#original-username').val('');
+    });
 });
 
 function getUsers() {
@@ -231,7 +367,8 @@ function getUsers() {
             {
                 data: null,
                 render: function (data) {
-                    return '<button class="btn btn-sm btn-primary edit" data-id="' + data.id + '">Edit Account</button>' +
+                    return '<button class="btn btn-sm btn-info view-user" data-id="' + data.id + '">View</button>' +
+                        ' <button class="btn btn-sm btn-primary edit" data-id="' + data.id + '">Edit Account</button>' +
                         ' <button class="btn btn-sm btn-warning reset-password" data-id="' + data.id + '">Reset Password</button>' +
                         ' <button class="btn btn-sm btn-danger delete" data-id="' + data.id + '">Delete</button>';
                 }

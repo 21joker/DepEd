@@ -34,19 +34,9 @@ class UsersController extends AppController
         if ($response) {
             return $response;
         }
+        $this->refreshUserSchema();
         $users = $this->Users->find()
-            ->select([
-                'id',
-                'username',
-                'role',
-                'created',
-                'modified',
-                'first_name',
-                'middle_initial',
-                'last_name',
-                'email_address',
-                'level_of_governance',
-            ])
+            ->select($this->getUserSelectFields())
             ->enableHydration(false)
             ->toArray();
         return $this->response->withType('application/json')
@@ -86,12 +76,13 @@ class UsersController extends AppController
         if ($response) {
             return $response;
         }
+        $this->refreshUserSchema();
         $user = $this->Users->newEmptyEntity();
 
         if ($this->request->is('post')) {
             $data = $this->request->getData();
             $schema = $this->Users->getSchema();
-            foreach (['first_name','middle_initial','last_name','email_address','level_of_governance'] as $field) {
+            foreach (['first_name','middle_initial','last_name','suffix','degree','position','email_address','level_of_governance'] as $field) {
                 if (!$schema->hasColumn($field)) {
                     unset($data[$field]);
                 }
@@ -128,6 +119,7 @@ class UsersController extends AppController
         if ($response) {
             return $response;
         }
+        $this->refreshUserSchema();
         $user = $this->Users->get($id, [
             'contain' => [],
         ]);
@@ -137,8 +129,54 @@ class UsersController extends AppController
 
             if (in_array($userAuth, ['Superuser', 'Administrator'], true)) {
                 $data = $this->request->getData();
+                $isReset = !empty($data['reset_mode']) && (string)$data['reset_mode'] !== '0';
+                if ($isReset) {
+                    $resetEmail = strtolower(trim((string)($data['reset_email'] ?? '')));
+                    $userEmail = strtolower(trim((string)($user->email_address ?? '')));
+                    if ($resetEmail === '' || $userEmail === '' || $resetEmail !== $userEmail) {
+                        $result = [
+                            'status' => 'error',
+                            'message' => 'Email address does not match the user record.',
+                        ];
+                        return $this->response->withType('application/json')
+                            ->withStringBody(json_encode($result));
+                    }
+
+                    $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+                    $lower = 'abcdefghijkmnpqrstuvwxyz';
+                    $digits = '23456789';
+                    $all = $upper . $lower . $digits;
+                    $chars = [
+                        $upper[random_int(0, strlen($upper) - 1)],
+                        $lower[random_int(0, strlen($lower) - 1)],
+                        $digits[random_int(0, strlen($digits) - 1)],
+                    ];
+                    for ($i = count($chars); $i < 8; $i++) {
+                        $chars[] = $all[random_int(0, strlen($all) - 1)];
+                    }
+                    shuffle($chars);
+                    $generatedPassword = implode('', $chars);
+                    $user->password = $generatedPassword;
+                    if ($this->Users->save($user)) {
+                        $result = [
+                            'status' => 'success',
+                            'message' => 'New password: ' . $generatedPassword,
+                        ];
+                    } else {
+                        $errors = $user->getErrors();
+                        $result = [
+                            'status' => 'error',
+                            'message' => 'Failed to reset password. Please, try again.',
+                            'errors' => $errors,
+                        ];
+                    }
+
+                    return $this->response->withType('application/json')
+                        ->withStringBody(json_encode($result));
+                }
+                unset($data['reset_mode'], $data['reset_email']);
                 $schema = $this->Users->getSchema();
-                foreach (['first_name','middle_initial','last_name','email_address','level_of_governance'] as $field) {
+                foreach (['first_name','middle_initial','last_name','suffix','degree','position','email_address','level_of_governance'] as $field) {
                     if (!$schema->hasColumn($field)) {
                         unset($data[$field]);
                     }
@@ -148,11 +186,42 @@ class UsersController extends AppController
                 }
                 $user = $this->Users->patchEntity($user, $data);
                 if ($this->Users->save($user)) {
+                    $updateFields = [
+                        'username',
+                        'role',
+                        'first_name',
+                        'middle_initial',
+                        'last_name',
+                        'suffix',
+                        'degree',
+                        'position',
+                        'email_address',
+                        'level_of_governance',
+                    ];
+                    $updateData = [];
+                    foreach ($updateFields as $field) {
+                        if (array_key_exists($field, $data)) {
+                            $value = $data[$field];
+                            $updateData[$field] = $value === '' ? null : $value;
+                        }
+                    }
+                    if (!empty($updateData)) {
+                        $this->Users->updateAll($updateData, ['id' => $user->id]);
+                    }
                     $plainPassword = (string)$data['password'];
+                    $freshUser = $this->Users->get($user->id);
                     if ($plainPassword !== '') {
-                        $result = ['status' => 'success', 'message' => 'Your new password is: ' . $plainPassword];
+                        $result = [
+                            'status' => 'success',
+                            'message' => 'Your new password is: ' . $plainPassword,
+                            'user' => $freshUser,
+                        ];
                     } else {
-                        $result = ['status' => 'success', 'message' => 'The user has been saved.'];
+                        $result = [
+                            'status' => 'success',
+                            'message' => 'The user has been saved.',
+                            'user' => $freshUser,
+                        ];
                     }
                 }else{
                     $errors = $user->getErrors();
@@ -169,7 +238,10 @@ class UsersController extends AppController
             return $this->response->withType('application/json')
                 ->withStringBody(json_encode($result));
         }
-        return $this->response->withType('application/json')
+        return $this->response
+            ->withType('application/json')
+            ->withHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
+            ->withHeader('Pragma', 'no-cache')
             ->withStringBody(json_encode($user));
     }
 
@@ -195,6 +267,46 @@ class UsersController extends AppController
         }
         return $this->response->withType('application/json')
             ->withStringBody(json_encode($result));
+    }
+
+    public function debugUser($id = null)
+    {
+        $response = $this->ensureUserManager();
+        if ($response) {
+            return $response;
+        }
+
+        $this->request->allowMethod(['get']);
+        $this->refreshUserSchema();
+
+        $row = null;
+        $columns = [];
+        try {
+            $connection = $this->Users->getConnection();
+            $row = $connection
+                ->execute('SELECT * FROM users WHERE id = :id', ['id' => $id])
+                ->fetch('assoc') ?: null;
+            $columns = $connection
+                ->execute('SHOW COLUMNS FROM users')
+                ->fetchAll('assoc');
+        } catch (\Throwable $e) {
+            return $this->response
+                ->withType('application/json')
+                ->withStringBody(json_encode([
+                    'status' => 'error',
+                    'message' => 'Failed to query users table.',
+                    'error' => $e->getMessage(),
+                ]));
+        }
+
+        return $this->response
+            ->withType('application/json')
+            ->withStringBody(json_encode([
+                'status' => 'success',
+                'id' => $id,
+                'row' => $row,
+                'columns' => $columns,
+            ]));
     }
 
     public function login()
@@ -362,10 +474,51 @@ class UsersController extends AppController
     {
         $role = $this->Auth->user('role');
         if (!in_array($role, ['Superuser', 'Administrator'], true)) {
-            $this->Flash->error('You are not allowed to access this page.');
+            if ($role !== 'Approver') {
+                $this->Flash->error('You are not allowed to access this page.');
+            }
             return $this->redirect(['controller' => 'Requests', 'action' => 'pending']);
         }
 
         return null;
+    }
+
+    private function refreshUserSchema(): void
+    {
+        try {
+            $schema = $this->Users->getConnection()
+                ->getSchemaCollection()
+                ->describe($this->Users->getTable());
+            $this->Users->setSchema($schema);
+        } catch (\Throwable $e) {
+            // Ignore schema refresh failures.
+        }
+    }
+
+    private function getUserSelectFields(): array
+    {
+        $schema = $this->Users->getSchema();
+        $fields = [
+            'id',
+            'username',
+            'role',
+            'created',
+            'modified',
+            'first_name',
+            'middle_initial',
+            'last_name',
+            'suffix',
+            'degree',
+            'position',
+            'email_address',
+            'level_of_governance',
+        ];
+        $select = [];
+        foreach ($fields as $field) {
+            if ($schema->hasColumn($field) || in_array($field, ['id', 'username', 'role', 'created', 'modified'], true)) {
+                $select[] = $field;
+            }
+        }
+        return $select;
     }
 }

@@ -4,6 +4,12 @@
     text-align: center;
     line-height: 1.2;
 }
+.proposal-title .headline {
+    font-family: "Old English Text MT", "UnifrakturCook", "Times New Roman", serif;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 6px 0;
+}
 .proposal-title .seal {
     max-width: 90px;
     margin: 0 auto 8px;
@@ -64,6 +70,16 @@
     background: transparent;
     box-shadow: none;
 }
+.proposal-footer {
+    margin-top: 10px;
+    border-top: 1px solid #2b2b2b;
+    padding-top: 6px;
+}
+.proposal-footer img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
 </style>
 
 <div class="col-lg-8">
@@ -73,22 +89,21 @@
 
             <div class="proposal-title mb-3">
                 <div class="seal">
-                    <?= $this->Html->image('sdo.jpeg', [
-                        'pathPrefix' => 'dist/img/',
+                    <?= $this->Html->image('deped.png', [
                         'alt' => 'Seal',
                         'class' => 'img-fluid'
                     ]) ?>
                 </div>
-                <div class="small">Republic of the Philippines</div>
-                <div class="sub">Department of Education</div>
+                <div class="headline">Republic of the Philippines</div>
+                <div class="headline">Department of Education</div>
                 <div class="small">Region II - Cagayan Valley</div>
-                <div class="sub">Schools Division of Santiago City</div>
+                <div class="sub">SCHOOLS DIVISION OF SANTIAGO CITY</div>
                 <div class="small mt-2">Enclosure 1</div>
                 <div class="main">Activity Proposal</div>
                 <div class="small">For GAS-MOOE and Centrally Managed and Funded Activities</div>
             </div>
 
-            <?= $this->Form->create($requestEntity) ?>
+            <?= $this->Form->create($requestEntity, ['type' => 'file']) ?>
             <table class="table proposal-table">
                 <thead>
                     <tr>
@@ -178,10 +193,14 @@
                         <td>
                             <div class="d-flex flex-wrap">
                                 <?php
-                                    $fundOptions = ['OSDS', 'GASS-MOOE', 'CMF', 'SPF'];
+                                    $fundOptions = ['OSDS', 'GASS-MOOE', 'CMF', 'PSF'];
                                     foreach ($fundOptions as $option):
                                         $id = 'source-of-fund-' . strtolower(str_replace([' ', '-'], '', $option));
                                 ?>
+                                    <?php
+                                        $selectedFunds = $selectedFunds ?? [];
+                                        $isChecked = in_array($option, $selectedFunds, true);
+                                    ?>
                                     <div class="custom-control custom-checkbox mr-3 mb-2">
                                         <input
                                             type="checkbox"
@@ -189,6 +208,7 @@
                                             id="<?= h($id) ?>"
                                             name="source_of_fund[]"
                                             value="<?= h($option) ?>"
+                                            <?= $isChecked ? 'checked' : '' ?>
                                         >
                                         <label class="custom-control-label" for="<?= h($id) ?>"><?= h($option) ?></label>
                                     </div>
@@ -231,6 +251,53 @@
                 </tbody>
             </table>
 
+            <div class="form-group mt-3">
+                <label><strong>Attachment (PDF)</strong></label>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="attachment-sub-aro">SUB-ARO</label>
+                        <?= $this->Form->control('attachment_sub_aro', [
+                            'type' => 'file',
+                            'label' => false,
+                            'id' => 'attachment-sub-aro',
+                            'class' => 'form-control',
+                            'accept' => '.pdf,application/pdf'
+                        ]) ?>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="attachment-sfwp">SFWP</label>
+                        <?= $this->Form->control('attachment_sfwp', [
+                            'type' => 'file',
+                            'label' => false,
+                            'id' => 'attachment-sfwp',
+                            'class' => 'form-control',
+                            'accept' => '.pdf,application/pdf'
+                        ]) ?>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="attachment-ar">AR</label>
+                        <?= $this->Form->control('attachment_ar', [
+                            'type' => 'file',
+                            'label' => false,
+                            'id' => 'attachment-ar',
+                            'class' => 'form-control',
+                            'accept' => '.pdf,application/pdf'
+                        ]) ?>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="attachment-ac">AC</label>
+                        <?= $this->Form->control('attachment_ac', [
+                            'type' => 'file',
+                            'label' => false,
+                            'id' => 'attachment-ac',
+                            'class' => 'form-control',
+                            'accept' => '.pdf,application/pdf'
+                        ]) ?>
+                    </div>
+                </div>
+                <small class="text-muted">PDF files only.</small>
+            </div>
+
             <div class="proposal-actions d-flex align-items-center justify-content-end">
                 <div class="text-muted mr-3">
                     <strong>Requested By:</strong> <?= h($requestEntity->name ?? '') ?>
@@ -238,6 +305,12 @@
                 <?= $this->Form->button('Submit Request', ['class' => 'btn btn-primary']) ?>
             </div>
             <?= $this->Form->end() ?>
+
+            <div class="proposal-footer">
+                <?= $this->Html->image('footer.jpg', [
+                    'alt' => 'Footer',
+                ]) ?>
+            </div>
         </div>
     </div>
 </div>
@@ -260,6 +333,13 @@
                             N/A
                         <?php endif; ?>
                     </div>
+                    <?php if ((int)($lastRequest->approvals_count ?? 0) === 0): ?>
+                        <div class="mt-2">
+                            <a class="btn btn-outline-secondary btn-sm" href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'edit', $lastRequest->id]) ?>">
+                                Edit Request
+                            </a>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 <div class="text-uppercase text-muted small mb-2">Status</div>
                 <?php foreach ($admins as $admin): ?>

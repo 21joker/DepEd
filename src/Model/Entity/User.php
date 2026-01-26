@@ -16,6 +16,9 @@ use Cake\ORM\Entity;
  * @property string|null $first_name
  * @property string|null $middle_initial
  * @property string|null $last_name
+ * @property string|null $suffix
+ * @property string|null $degree
+ * @property string|null $position
  * @property string|null $email_address
  * @property string|null $level_of_governance
  * @property \Cake\I18n\FrozenTime $created
@@ -41,6 +44,9 @@ class User extends Entity
         'first_name' => true,
         'middle_initial' => true,
         'last_name' => true,
+        'suffix' => true,
+        'degree' => true,
+        'position' => true,
         'email_address' => true,
         'level_of_governance' => true,
         'created' => true,

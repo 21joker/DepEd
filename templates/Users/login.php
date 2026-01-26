@@ -51,7 +51,7 @@
                     <input type="text" class="form-control" id="forgot-username" placeholder="Username">
                 </div>
                 <div class="form-group mb-0">
-                    <label>Contact (optional)</label>
+                    <label>Email Address/Contact Number</label>
                     <input type="text" class="form-control" id="forgot-contact" placeholder="Email or mobile">
                 </div>
             </div>

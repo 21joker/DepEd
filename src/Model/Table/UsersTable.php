@@ -110,6 +110,21 @@ class UsersTable extends Table
             ->allowEmptyString('last_name');
 
         $validator
+            ->scalar('suffix')
+            ->maxLength('suffix', 20)
+            ->allowEmptyString('suffix');
+
+        $validator
+            ->scalar('degree')
+            ->maxLength('degree', 50)
+            ->allowEmptyString('degree');
+
+        $validator
+            ->scalar('position')
+            ->maxLength('position', 100)
+            ->allowEmptyString('position');
+
+        $validator
             ->email('email_address')
             ->allowEmptyString('email_address');
 

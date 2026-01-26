@@ -214,6 +214,219 @@ class RequestsController extends AppController
         $this->set(compact('requestEntity', 'admins', 'lastRequest', 'approvalStatuses'));
     }
 
+    public function edit($id = null)
+    {
+        $this->viewBuilder()->setLayout($this->Auth->user() ? 'default' : 'login');
+
+        if (!$id) {
+            $this->Flash->error('Request not found.');
+            return $this->redirect(['action' => 'add']);
+        }
+
+        $requestEntity = $this->Requests->get($id);
+        $authId = (int)$this->Auth->user('id');
+        $sessionRequestId = (int)$this->request->getSession()->read('last_request_id');
+
+        if ($authId && (int)$requestEntity->user_id !== $authId) {
+            $this->Flash->error('You are not allowed to edit this request.');
+            return $this->redirect(['action' => 'add']);
+        }
+        if (!$authId && $sessionRequestId && (int)$requestEntity->id !== $sessionRequestId) {
+            $this->Flash->error('You are not allowed to edit this request.');
+            return $this->redirect(['action' => 'add']);
+        }
+
+        $isLocked = in_array($requestEntity->status, ['approved', 'Approved'], true)
+            || ((int)$requestEntity->approvals_count > 0);
+        if ($isLocked) {
+            $this->Flash->error('This request can no longer be edited.');
+            return $this->redirect(['action' => 'add']);
+        }
+
+        if ($this->request->is(['patch', 'post', 'put'])) {
+            $formData = $this->request->getData();
+            $requestEntity = $this->Requests->patchEntity($requestEntity, $formData);
+
+            $rawName = trim((string)$this->request->getData('name'));
+            $rawEmail = trim((string)$this->request->getData('email'));
+            if ($rawName === '' && !empty($formData['proponents'])) {
+                $rawName = trim((string)$formData['proponents']);
+            }
+            $requestEntity->name = $rawName;
+            $requestEntity->email = $rawEmail;
+
+            $title = trim((string)($formData['title_of_activity'] ?? $formData['title'] ?? ''));
+            if ($title === '') {
+                $title = 'Activity Proposal';
+            }
+            $requestEntity->title = $title;
+
+            $detailsLines = [];
+            $detailsMap = [
+                'PMIS Activity Code' => 'pmis_activity_code',
+                'Title of Activity' => 'title_of_activity',
+                'Proponent/s' => 'proponents',
+                'Venue/Modality' => 'venue_modality',
+                'Target Participants' => 'target_participants',
+                'Activity Description (Justification)' => 'activity_description',
+                'Activity Objectives' => 'activity_objectives',
+                'Expected Output' => 'expected_output',
+                'Monitoring & Evaluation' => 'monitoring_evaluation',
+                'Budget Requirement' => 'budget_requirement',
+                'Source of Fund' => 'source_of_fund',
+                'Grand Total' => 'grand_total',
+            ];
+
+            foreach ($detailsMap as $label => $key) {
+                $rawValue = $formData[$key] ?? '';
+                if (is_array($rawValue)) {
+                    $value = trim(implode(', ', array_filter(array_map('trim', $rawValue), 'strlen')));
+                } else {
+                    $value = trim((string)$rawValue);
+                }
+                if ($value !== '') {
+                    $detailsLines[] = $label . ': ' . $value;
+                }
+            }
+
+            $scheduleFrom = trim((string)($formData['activity_schedule_from'] ?? ''));
+            $scheduleTo = trim((string)($formData['activity_schedule_to'] ?? ''));
+            if ($scheduleFrom !== '' || $scheduleTo !== '') {
+                $detailsLines[] = 'Activity Schedule: ' . trim($scheduleFrom . ' - ' . $scheduleTo, ' -');
+            }
+
+            $nature = $formData['expenditure_nature'] ?? [];
+            $count = $formData['expenditure_no'] ?? [];
+            $amount = $formData['expenditure_amount'] ?? [];
+            $total = $formData['expenditure_total'] ?? [];
+            $matrixRows = [];
+            $rows = max(count((array)$nature), count((array)$count), count((array)$amount), count((array)$total));
+            for ($i = 0; $i < $rows; $i++) {
+                $rowNature = trim((string)($nature[$i] ?? ''));
+                $rowCount = trim((string)($count[$i] ?? ''));
+                $rowAmount = trim((string)($amount[$i] ?? ''));
+                $rowTotal = trim((string)($total[$i] ?? ''));
+                if ($rowNature === '' && $rowCount === '' && $rowAmount === '' && $rowTotal === '') {
+                    continue;
+                }
+                $matrixRows[] = sprintf(
+                    '- %s | No: %s | Amount: %s | Total: %s',
+                    $rowNature,
+                    $rowCount,
+                    $rowAmount,
+                    $rowTotal
+                );
+            }
+            if (!empty($matrixRows)) {
+                $detailsLines[] = 'Expenditure Matrix:';
+                $detailsLines = array_merge($detailsLines, $matrixRows);
+            }
+
+            $detailsText = trim(implode("\n", $detailsLines));
+            if ($detailsText !== '') {
+                $requestEntity->details = $detailsText;
+            }
+
+            if ($this->Requests->save($requestEntity)) {
+                $this->Flash->success('Request updated.');
+                return $this->redirect(['action' => 'add']);
+            }
+
+            $this->Flash->error('Failed to update request.');
+        }
+
+        $detailsText = trim((string)($requestEntity->details ?? $requestEntity->message ?? ''));
+        $fields = [];
+        $matrix = [];
+        $inMatrix = false;
+        if ($detailsText !== '') {
+            $lines = preg_split("/\\r?\\n/", $detailsText);
+            foreach ($lines as $line) {
+                $line = trim((string)$line);
+                if ($line === '') {
+                    continue;
+                }
+                if (stripos($line, 'Expenditure Matrix:') === 0) {
+                    $inMatrix = true;
+                    continue;
+                }
+                if ($inMatrix) {
+                    if (strpos($line, '- ') === 0) {
+                        $row = substr($line, 2);
+                        $parts = array_map('trim', explode('|', $row));
+                        $matrix[] = [
+                            'nature' => $parts[0] ?? '',
+                            'no' => isset($parts[1]) ? trim(str_ireplace('No:', '', $parts[1])) : '',
+                            'amount' => isset($parts[2]) ? trim(str_ireplace('Amount:', '', $parts[2])) : '',
+                            'total' => isset($parts[3]) ? trim(str_ireplace('Total:', '', $parts[3])) : '',
+                        ];
+                        continue;
+                    }
+                    $inMatrix = false;
+                }
+
+                $pos = strpos($line, ':');
+                if ($pos !== false) {
+                    $label = trim(substr($line, 0, $pos));
+                    $value = trim(substr($line, $pos + 1));
+                    if ($label !== '') {
+                        $fields[$label] = $value;
+                    }
+                }
+            }
+        }
+
+        $requestEntity->set('pmis_activity_code', $fields['PMIS Activity Code'] ?? '');
+        $requestEntity->set('title_of_activity', $fields['Title of Activity'] ?? '');
+        $requestEntity->set('proponents', $fields['Proponent/s'] ?? '');
+        $requestEntity->set('venue_modality', $fields['Venue/Modality'] ?? '');
+        $requestEntity->set('target_participants', $fields['Target Participants'] ?? '');
+        $requestEntity->set('activity_description', $fields['Activity Description (Justification)'] ?? '');
+        $requestEntity->set('activity_objectives', $fields['Activity Objectives'] ?? '');
+        $requestEntity->set('expected_output', $fields['Expected Output'] ?? '');
+        $requestEntity->set('monitoring_evaluation', $fields['Monitoring & Evaluation'] ?? '');
+        $requestEntity->set('budget_requirement', $fields['Budget Requirement'] ?? '');
+        $requestEntity->set('grand_total', $fields['Grand Total'] ?? '');
+
+        $schedule = $fields['Activity Schedule'] ?? '';
+        if ($schedule !== '') {
+            $parts = array_map('trim', explode(' - ', $schedule));
+            $requestEntity->set('activity_schedule_from', $parts[0] ?? '');
+            $requestEntity->set('activity_schedule_to', $parts[1] ?? '');
+        }
+
+        $funds = $fields['Source of Fund'] ?? '';
+        $selectedFunds = array_filter(array_map('trim', explode(',', $funds)), 'strlen');
+
+        $requestEntity->set('expenditure_nature', array_column($matrix, 'nature'));
+        $requestEntity->set('expenditure_no', array_column($matrix, 'no'));
+        $requestEntity->set('expenditure_amount', array_column($matrix, 'amount'));
+        $requestEntity->set('expenditure_total', array_column($matrix, 'total'));
+
+        $this->loadModel('Users');
+        $this->loadModel('RequestApprovals');
+
+        $admins = $this->Users->find()
+            ->where(['role IN' => ['Administrator', 'Approver']])
+            ->orderAsc('id')
+            ->all();
+
+        $lastRequest = $requestEntity;
+        $approvalStatuses = [];
+        if ($lastRequest) {
+            $approvalStatuses = $this->RequestApprovals->find()
+                ->select(['admin_user_id', 'status'])
+                ->where(['request_id' => $lastRequest->id])
+                ->enableHydration(false)
+                ->all()
+                ->combine('admin_user_id', 'status')
+                ->toArray();
+        }
+
+        $this->set(compact('requestEntity', 'admins', 'lastRequest', 'approvalStatuses', 'selectedFunds'));
+        $this->render('add');
+    }
+
     public function pending()
     {
         $response = $this->ensureAdmin();
@@ -227,9 +440,6 @@ class RequestsController extends AppController
 
         $requests = $this->Requests->find()
             ->where(['status !=' => 'deleted'])
-            ->where(function ($exp) {
-                return $exp->lt('approvals_count', new IdentifierExpression('approvals_needed'));
-            })
             ->orderDesc('created_at')
             ->orderDesc('id')
             ->all();
@@ -237,9 +447,6 @@ class RequestsController extends AppController
             $requests = $this->Requests->find()
                 ->where(['status !=' => 'deleted'])
                 ->where(['id NOT IN' => $hiddenRequestIds])
-                ->where(function ($exp) {
-                    return $exp->lt('approvals_count', new IdentifierExpression('approvals_needed'));
-                })
                 ->orderDesc('created_at')
                 ->orderDesc('id')
                 ->all();
@@ -494,6 +701,93 @@ class RequestsController extends AppController
 
         $pageTitle = 'Request Details';
         $this->set(compact('requestEntity', 'approvals', 'pageTitle', 'adminId', 'inModal', 'admins', 'approvalStatuses'));
+    }
+
+    public function exportPdf($id = null)
+    {
+        $response = $this->ensureAdmin();
+        if ($response) {
+            return $response;
+        }
+
+        $requestEntity = $this->Requests->get($id);
+        $isApproved = in_array($requestEntity->status, ['approved', 'Approved'], true)
+            || ((int)$requestEntity->approvals_needed > 0
+                && (int)$requestEntity->approvals_count >= (int)$requestEntity->approvals_needed);
+
+        if (!$isApproved) {
+            $this->Flash->error('This request is not fully approved yet.');
+            return $this->redirect(['action' => 'pending']);
+        }
+
+        $proponentName = '';
+        $proponentDegree = '';
+        $proponentPosition = '';
+        $detailsText = trim((string)($requestEntity->details ?? $requestEntity->message ?? ''));
+        if ($detailsText !== '') {
+            $lines = preg_split("/\\r?\\n/", $detailsText);
+            foreach ($lines as $line) {
+                $line = trim((string)$line);
+                if ($line === '') {
+                    continue;
+                }
+                $pos = strpos($line, ':');
+                if ($pos === false) {
+                    continue;
+                }
+                $label = trim(substr($line, 0, $pos));
+                $value = trim(substr($line, $pos + 1));
+                if (strcasecmp($label, 'Proponent/s') === 0 && $value !== '') {
+                    $proponentName = $value;
+                }
+            }
+        }
+
+        if ($proponentName === '' && !empty($requestEntity->user_id)) {
+            try {
+                $this->loadModel('Users');
+                $user = $this->Users->find()
+                    ->select([
+                        'first_name',
+                        'middle_initial',
+                        'last_name',
+                        'suffix',
+                        'degree',
+                        'position',
+                        'email_address',
+                    ])
+                    ->where(['id' => (int)$requestEntity->user_id])
+                    ->first();
+                if ($user) {
+                    $parts = array_filter([
+                        $user->first_name ?? null,
+                        $user->middle_initial ?? null,
+                        $user->last_name ?? null,
+                    ]);
+                    $name = trim(implode(' ', $parts));
+                    if (!empty($user->suffix)) {
+                        $name = trim($name . ' ' . $user->suffix);
+                    }
+                    if ($name !== '') {
+                        $proponentName = $name;
+                    }
+                    $proponentDegree = (string)($user->degree ?? '');
+                    $proponentPosition = (string)($user->position ?? '');
+                }
+            } catch (\Throwable $e) {
+                // Ignore if users table isn't available.
+            }
+        }
+
+        $this->viewBuilder()->setLayout('ajax');
+        $pageTitle = 'Activity Proposal';
+        $this->set(compact(
+            'requestEntity',
+            'pageTitle',
+            'proponentName',
+            'proponentDegree',
+            'proponentPosition'
+        ));
     }
 
     public function approve($id = null)

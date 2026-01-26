@@ -15,9 +15,9 @@ $pageTitle = $pageTitle ?? 'Pending Requests';
 $headerBadge = $headerBadge ?? 'Needs all admin approvals';
 $viewType = $viewType ?? 'pending';
 $inModal = $inModal ?? false;
-$showActions = $viewType === 'pending';
+$showActions = $viewType === 'pending' && ($auth['role'] ?? '') !== 'Superuser';
 $showView = true;
-$showStatus = $viewType === 'pending';
+$showStatus = $viewType === 'pending' && ($auth['role'] ?? '') !== 'Superuser';
 $adminApprovalStatus = $adminApprovalStatus ?? [];
 
 function _approval_badge($status) {
@@ -82,29 +82,21 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
 <!-- ===== Stats Cards ===== -->
 <?php if (!$inModal): ?>
 <div class="dashboard-row">
-  <a class="small-box bg-warning dashboard-card" data-title="Pending Requests" href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'pending', '?' => ['modal' => 1]]) ?>">
-    <div class="inner">
-      <h3><?= (int)($counts['pending'] ?? 0) ?></h3>
-      <p>Pending</p>
-    </div>
-    <div class="icon"><i class="fas fa-hourglass-half"></i></div>
-  </a>
-
-  <a class="small-box bg-success dashboard-card" data-title="Approved Requests" href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'approved', '?' => ['modal' => 1]]) ?>">
+  <div class="small-box bg-success">
     <div class="inner">
       <h3><?= (int)($counts['approved'] ?? 0) ?></h3>
       <p>Approved</p>
     </div>
     <div class="icon"><i class="fas fa-check"></i></div>
-  </a>
+  </div>
 
-  <a class="small-box bg-secondary dashboard-card" data-title="Review Requests" href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'rejected', '?' => ['modal' => 1]]) ?>">
+  <div class="small-box bg-secondary">
     <div class="inner">
       <h3><?= (int)($counts['rejected'] ?? 0) ?></h3>
       <p>Review</p>
     </div>
     <div class="icon"><i class="fas fa-ban"></i></div>
-  </a>
+  </div>
 
 </div>
 <?php endif; ?>
@@ -113,7 +105,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
 <div class="col-12 p-0">
   <div class="card">
     <div class="card-header">
-      <h3 class="card-title"><?= h($pageTitle) ?></h3>
+      <h3 class="card-title">&nbsp;</h3>
       <div class="card-tools d-flex align-items-center">
         <?php if (!empty($headerBadge)): ?>
           <span class="badge badge-warning mr-2"><?= h($headerBadge) ?></span>
@@ -134,6 +126,18 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
     <div class="card-body">
       <?= $this->Flash->render() ?>
 
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <div class="text-muted small">Search in list</div>
+        <div class="input-group input-group-sm" style="max-width: 320px;">
+          <input type="text" id="pending-search" class="form-control" placeholder="Search name, subject, status">
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" id="pending-search-btn" type="button">
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="table-responsive">
         <table class="table table-bordered table-hover table-sm">
           <thead>
@@ -142,7 +146,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
               <th>Subject</th>
               <th style="width: 18%;">Submitted</th>
               <th style="width: 12%;">Approvals</th>
-              <?php if ($showStatus): ?>
+<?php if ($showStatus): ?>
                 <th style="width: 12%;">Status</th>
               <?php endif; ?>
               <th style="width: 18%;">Action</th>
@@ -191,6 +195,20 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                       >View</a>
                     <?php endif; ?>
 
+                    <?php
+                      $isFullyApproved = in_array($request->status ?? null, ['approved', 'Approved'], true)
+                        || ((int)($request->approvals_needed ?? 0) > 0
+                          && (int)($request->approvals_count ?? 0) >= (int)($request->approvals_needed ?? 0));
+                    ?>
+                    <?php if ($isFullyApproved): ?>
+                      <a
+                        class="btn btn-secondary btn-sm"
+                        target="_blank"
+                        rel="noopener"
+                        href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'exportPdf', $request->id]) ?>"
+                      >Export PDF</a>
+                    <?php endif; ?>
+
                     <?php if ($showActions): ?>
                       <?= $this->Form->postLink(
                         'Approve',
@@ -219,6 +237,27 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var input = document.getElementById('pending-search');
+  var btn = document.getElementById('pending-search-btn');
+  var table = document.querySelector('.table-responsive table');
+  if (!input || !btn || !table) {
+    return;
+  }
+  function filterRows() {
+    var term = (input.value || '').toLowerCase();
+    var rows = table.querySelectorAll('tbody tr');
+    rows.forEach(function (row) {
+      var text = row.textContent.toLowerCase();
+      row.style.display = text.indexOf(term) !== -1 ? '' : 'none';
+    });
+  }
+  input.addEventListener('input', filterRows);
+  btn.addEventListener('click', filterRows);
+});
+</script>
 
 <!-- ===== Recent Activity Logs (optional) ===== -->
 <?php if (!empty($recentLogs)): ?>

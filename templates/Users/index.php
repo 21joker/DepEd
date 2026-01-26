@@ -49,7 +49,7 @@
     </div>
 </div>
 
-<?php $this->Html->script('/js/Users.js', ['block' => 'scriptBottom']); ?>
+<?php $this->Html->script('/js/Users.js?v=20260129', ['block' => 'scriptBottom']); ?>
 <div class="modal fade" id="users-modal">
     <div class="modal-dialog  modal-md">
         <div class="modal-content">
@@ -66,37 +66,64 @@
                     <?= $this->Form->control('username_display', [
                         'class' => 'form-control',
                         'placeholder' => 'Username',
-                        'label' => false
+                        'label' => false,
+                        'id' => 'username-display-enroll'
                     ]) ?>
                     <label>First name</label>
                     <?= $this->Form->control('first_name', [
                         'class' => 'form-control',
                         'placeholder' => 'First name',
-                        'label' => false
+                        'label' => false,
+                        'id' => 'first-name-enroll'
                     ]) ?>
                     <label>M.I</label>
                     <?= $this->Form->control('middle_initial', [
                         'class' => 'form-control',
                         'placeholder' => 'M.I',
-                        'label' => false
+                        'label' => false,
+                        'id' => 'middle-initial-enroll'
                     ]) ?>
                     <label>Last name</label>
                     <?= $this->Form->control('last_name', [
                         'class' => 'form-control',
                         'placeholder' => 'Last name',
-                        'label' => false
+                        'label' => false,
+                        'id' => 'last-name-enroll'
+                    ]) ?>
+                    <label>Suffix</label>
+                    <?= $this->Form->control('suffix', [
+                        'class' => 'form-control',
+                        'placeholder' => 'Suffix (e.g., Jr., III)',
+                        'label' => false,
+                        'id' => 'suffix-enroll'
+                    ]) ?>
+                    <label>Degree</label>
+                    <?= $this->Form->control('degree', [
+                        'class' => 'form-control',
+                        'placeholder' => 'Degree (e.g., PhD, MAEd)',
+                        'label' => false,
+                        'id' => 'degree-enroll'
+                    ]) ?>
+                    <label>Position</label>
+                    <?= $this->Form->control('position', [
+                        'class' => 'form-control',
+                        'placeholder' => 'Position',
+                        'label' => false,
+                        'id' => 'position-enroll'
                     ]) ?>
                     <label>Email Address</label>
                     <?= $this->Form->control('email_address', [
                         'class' => 'form-control',
                         'placeholder' => 'Email Address',
                         'label' => false,
-                        'type' => 'email'
+                        'type' => 'email',
+                        'id' => 'email-address-enroll'
                     ]) ?>
                     <label>Level of governance</label>
                     <?= $this->Form->control('level_of_governance', [
                         'class' => 'form-control',
                         'label' => false,
+                        'id' => 'level-of-governance-enroll',
                         'options' => [
                             'SGOD' => 'SGOD',
                             'CID' => 'CID',
@@ -107,6 +134,7 @@
                     <?= $this->Form->control('role_display', [
                         'class' => 'form-control',
                         'label' => false,
+                        'id' => 'role-display-enroll',
                         'options' => [
                             'User' => 'User',
                             'Approver' => 'Approver',
@@ -117,59 +145,90 @@
                         'class' => 'form-control',
                         'placeholder' => 'Password',
                         'label' => false,
-                        'type' => 'password'
+                        'type' => 'password',
+                        'id' => 'password-enroll'
                     ]) ?>
                     <label>Retype Password</label>
                     <?= $this->Form->control('retype_password', [
                         'class' => 'form-control',
                         'placeholder' => 'Retype Password',
                         'label' => false,
-                        'type' => 'password'
+                        'type' => 'password',
+                        'id' => 'retype-password-enroll'
                     ]) ?>
                     <?= $this->Form->control('username', [
                         'type' => 'hidden',
-                        'label' => false
+                        'label' => false,
+                        'id' => 'username'
                     ]) ?>
                     <?= $this->Form->control('role', [
                         'type' => 'hidden',
-                        'label' => false
+                        'label' => false,
+                        'id' => 'role'
                     ]) ?>
                 <?php else: ?>
                     <label>Username</label>
                     <?= $this->Form->control('username', [
                         'class' => 'form-control',
                         'placeholder' => 'Username',
-                        'label' => false
+                        'label' => false,
+                        'id' => 'username-manage'
                     ]) ?>
                     <label>First name</label>
                     <?= $this->Form->control('first_name', [
                         'class' => 'form-control',
                         'placeholder' => 'First name',
-                        'label' => false
+                        'label' => false,
+                        'id' => 'first-name-manage'
                     ]) ?>
                     <label>M.I</label>
                     <?= $this->Form->control('middle_initial', [
                         'class' => 'form-control',
                         'placeholder' => 'M.I',
-                        'label' => false
+                        'label' => false,
+                        'id' => 'middle-initial-manage'
                     ]) ?>
                     <label>Last name</label>
                     <?= $this->Form->control('last_name', [
                         'class' => 'form-control',
                         'placeholder' => 'Last name',
-                        'label' => false
+                        'label' => false,
+                        'id' => 'last-name-manage'
+                    ]) ?>
+                    <label>Suffix</label>
+                    <?= $this->Form->control('suffix', [
+                        'class' => 'form-control',
+                        'placeholder' => 'Suffix (e.g., Jr., III)',
+                        'label' => false,
+                        'id' => 'suffix-manage'
+                    ]) ?>
+                    <label>Degree</label>
+                    <?= $this->Form->control('degree', [
+                        'class' => 'form-control',
+                        'placeholder' => 'Degree (e.g., PhD, MAEd)',
+                        'label' => false,
+                        'id' => 'degree-manage'
+                    ]) ?>
+                    <label>Position</label>
+                    <?= $this->Form->control('position', [
+                        'class' => 'form-control',
+                        'placeholder' => 'Position',
+                        'label' => false,
+                        'id' => 'position-manage'
                     ]) ?>
                     <label>Email Address</label>
                     <?= $this->Form->control('email_address', [
                         'class' => 'form-control',
                         'placeholder' => 'Email Address',
                         'label' => false,
-                        'type' => 'email'
+                        'type' => 'email',
+                        'id' => 'email-address-manage'
                     ]) ?>
                     <label>Level of governance</label>
                     <?= $this->Form->control('level_of_governance', [
                         'class' => 'form-control',
                         'label' => false,
+                        'id' => 'level-of-governance-manage',
                         'options' => [
                             'SGOD' => 'SGOD',
                             'CID' => 'CID',
@@ -180,6 +239,7 @@
                     <?= $this->Form->control('role', [
                         'class' => 'form-control',
                         'label' => false,
+                        'id' => 'role-manage',
                         'options' => [
                             'User' => 'User',
                             'Administrator' => 'Administrator',
@@ -188,30 +248,23 @@
                         ]
                     ]) ?>
                     <div id="manage-password-fields">
-                        <label>Old Password</label>
-                        <?= $this->Form->control('old_password', [
+                        <label>Email Address</label>
+                        <?= $this->Form->control('reset_email', [
                             'class' => 'form-control',
-                            'placeholder' => 'Old Password',
+                            'placeholder' => 'Email Address',
                             'label' => false,
-                            'type' => 'password'
+                            'type' => 'email'
                         ]) ?>
-                        <label>New Password</label>
-                        <?= $this->Form->control('new_password', [
-                            'class' => 'form-control',
-                            'placeholder' => 'New Password',
-                            'label' => false,
-                            'type' => 'password'
-                        ]) ?>
-                        <?= $this->Form->control('password', [
-                            'type' => 'hidden',
-                            'label' => false
-                        ]) ?>
+                        <small class="text-muted d-block mb-2">
+                            Enter the user email to generate a new 8-digit password.
+                        </small>
                     </div>
                 <?php endif; ?>
             </div>
             <div class="modal-footer justify-content-between">
                 <?= $this->Form->control('id',['type'=>'hidden','label'=>false])?>
                 <?= $this->Form->control('original_username',['type'=>'hidden','label'=>false])?>
+                <?= $this->Form->control('reset_mode', ['type' => 'hidden', 'label' => false, 'value' => '0']) ?>
                 <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
                 <button type="submit" class="btn btn-primary">Save changes</button>
             </div>
@@ -222,3 +275,31 @@
     <!-- /.modal-dialog -->
 </div>
 <!-- /.modal -->
+
+<div class="modal fade" id="users-view-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-md" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">User Details</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2"><strong>Username:</strong> <span id="view-username">—</span></div>
+                <div class="mb-2"><strong>Full Name:</strong> <span id="view-fullname">—</span></div>
+                <div class="mb-2"><strong>Suffix:</strong> <span id="view-suffix">—</span></div>
+                <div class="mb-2"><strong>Degree:</strong> <span id="view-degree">—</span></div>
+                <div class="mb-2"><strong>Position:</strong> <span id="view-position">—</span></div>
+                <div class="mb-2"><strong>Email Address:</strong> <span id="view-email">—</span></div>
+                <div class="mb-2"><strong>Level of Governance:</strong> <span id="view-level">—</span></div>
+                <div class="mb-2"><strong>Role:</strong> <span id="view-role">—</span></div>
+                <div class="mb-2"><strong>Created:</strong> <span id="view-created">—</span></div>
+                <div class="mb-2"><strong>Modified:</strong> <span id="view-modified">—</span></div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
