@@ -55,6 +55,10 @@ class RequestApprovalsTable extends Table
             ->maxLength('status', 20)
             ->allowEmptyString('status');
 
+        $validator
+            ->scalar('remarks')
+            ->allowEmptyString('remarks');
+
         return $validator;
     }
 }

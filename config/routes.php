@@ -77,6 +77,15 @@ return function (RouteBuilder $routes): void {
             'action' => 'pendingCount',
         ]);
 
+        $builder->connect('/logs', [
+            'controller' => 'Logs',
+            'action' => 'index',
+        ]);
+        $builder->connect('/logs/clear-login', [
+            'controller' => 'Logs',
+            'action' => 'clearLoginLogs',
+        ]);
+
         /*
          * Connect catchall routes for all controllers.
          *
@@ -138,5 +147,3 @@ return static function (RouteBuilder $routes): void {
         $builder->fallbacks();
     });
 };
-
-

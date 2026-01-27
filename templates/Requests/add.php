@@ -322,6 +322,7 @@
         </div>
         <div class="card-body">
             <?php if (!empty($lastRequest) && !empty($admins)): ?>
+                <?php $approvalRemarks = $approvalRemarks ?? []; ?>
                 <div class="mb-3">
                     <div class="text-uppercase text-muted small mb-2">Form Details</div>
                     <div><strong>Title:</strong> <?= h($lastRequest->title) ?></div>
@@ -357,6 +358,29 @@
                         <?= h($admin->username) ?>
                     </span>
                 <?php endforeach; ?>
+
+                <?php
+                    $hasRemarks = false;
+                    foreach ($admins as $admin) {
+                        if (!empty($approvalRemarks[$admin->id])) {
+                            $hasRemarks = true;
+                            break;
+                        }
+                    }
+                ?>
+                <?php if ($hasRemarks): ?>
+                    <div class="mt-3">
+                        <div class="text-uppercase text-muted small mb-2">Remarks</div>
+                        <?php foreach ($admins as $admin): ?>
+                            <?php $remark = $approvalRemarks[$admin->id] ?? ''; ?>
+                            <?php if ($remark === '') { continue; } ?>
+                            <div class="mb-2">
+                                <strong><?= h($admin->username) ?>:</strong>
+                                <?= nl2br(h($remark)) ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             <?php else: ?>
                 <p class="text-muted mb-0">Submit a request to see approval status.</p>
             <?php endif; ?>

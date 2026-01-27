@@ -19,6 +19,8 @@ $showActions = $viewType === 'pending' && ($auth['role'] ?? '') !== 'Superuser';
 $showView = true;
 $showStatus = $viewType === 'pending' && ($auth['role'] ?? '') !== 'Superuser';
 $adminApprovalStatus = $adminApprovalStatus ?? [];
+$adminApprovalMeta = $adminApprovalMeta ?? [];
+$csrfToken = $this->getRequest()->getAttribute('csrfToken');
 
 function _approval_badge($status) {
   return match ($status) {
@@ -36,6 +38,16 @@ function _ux_badge_class($action) {
         'created'  => 'badge-info',
         default    => 'badge-light',
     };
+}
+
+function _format_status_time($value): string {
+  if ($value instanceof \Cake\I18n\FrozenTime) {
+    return $value->i18nFormat('MM/dd/yy h:mm a');
+  }
+  if ($value instanceof \DateTimeInterface) {
+    return $value->format('m/d/y h:i a');
+  }
+  return trim((string)$value);
 }
 
 $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests);
@@ -92,7 +104,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
 
   <div class="small-box bg-secondary">
     <div class="inner">
-      <h3><?= (int)($counts['rejected'] ?? 0) ?></h3>
+      <h3><?= (int)($counts['pending'] ?? 0) ?></h3>
       <p>Review</p>
     </div>
     <div class="icon"><i class="fas fa-ban"></i></div>
@@ -145,7 +157,6 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
               <th style="width: 18%;">Name</th>
               <th>Subject</th>
               <th style="width: 18%;">Submitted</th>
-              <th style="width: 12%;">Approvals</th>
 <?php if ($showStatus): ?>
                 <th style="width: 12%;">Status</th>
               <?php endif; ?>
@@ -156,7 +167,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
           <tbody>
             <?php if (!$hasRequests): ?>
               <tr>
-                <td colspan="<?= $showStatus ? 6 : 5 ?>" class="text-center text-muted">No requests found.</td>
+                <td colspan="<?= $showStatus ? 5 : 4 ?>" class="text-center text-muted">No requests found.</td>
               </tr>
             <?php endif; ?>
 
@@ -170,18 +181,22 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
 
                 <td><?= h($request->created_at ?? $request->created ?? '') ?></td>
 
-                <td>
-                  <?= (int)($request->approvals_count ?? 0) ?> / <?= (int)($request->approvals_needed ?? 0) ?>
-                </td>
-
                 <?php if ($showStatus): ?>
                   <td>
                     <?php
                       $status = $adminApprovalStatus[$request->id] ?? 'pending';
+                      $meta = $adminApprovalMeta[$request->id] ?? [];
+                      $statusAt = $meta['created'] ?? null;
                       $label = $status === 'approved' ? 'Approved' : ($status === 'declined' ? 'Review' : 'Pending');
                       $badge = _approval_badge($status);
+                      $statusAtLabel = $statusAt ? _format_status_time($statusAt) : '';
                     ?>
                     <span class="badge <?= h($badge) ?>"><?= h($label) ?></span>
+                    <?php if ($status !== 'pending' && $statusAtLabel !== ''): ?>
+                      <span class="text-muted small ml-2">
+                        <?= h($statusAtLabel) ?>
+                      </span>
+                    <?php endif; ?>
                   </td>
                 <?php endif; ?>
 
@@ -191,7 +206,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                       <a
                         class="btn btn-info btn-sm modal-link"
                         data-title="Request Details"
-                        href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'view', $request->id, '?' => ['modal' => 1]]) ?>"
+                        href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'view', $request->id, '?' => ['modal' => 1]], ['fullBase' => true]) ?>"
                       >View</a>
                     <?php endif; ?>
 
@@ -216,11 +231,12 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                         ['class' => 'btn btn-success btn-sm', 'confirm' => 'Approve this request?']
                       ) ?>
 
-                      <?= $this->Form->postLink(
-                        'Review',
-                        ['controller' => 'Requests', 'action' => 'decline', $request->id],
-                        ['class' => 'btn btn-warning btn-sm', 'confirm' => 'Mark this request for review?']
-                      ) ?>
+                      <button
+                        type="button"
+                        class="btn btn-warning btn-sm review-btn"
+                        data-request-id="<?= (int)$request->id ?>"
+                        data-request-title="<?= h($request->title ?? '') ?>"
+                      >Review</button>
                     <?php endif; ?>
                   </div>
                 </td>
@@ -232,8 +248,42 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
       </div>
 
       <small class="text-muted d-block mt-2">
-        Tip: On mobile, the table scrolls horizontally. Subject is truncated to keep layout clean.
-      </small>
+    Tip: On mobile, the table scrolls horizontally. Subject is truncated to keep layout clean.
+  </small>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="review-modal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Send Review Feedback</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form id="review-form" method="post">
+        <div class="modal-body">
+          <input type="hidden" name="_csrfToken" value="<?= h($csrfToken) ?>">
+          <div class="text-muted small mb-2" id="review-request-title"></div>
+          <div class="form-group mb-0">
+            <label for="review-remarks" class="font-weight-bold">Remarks</label>
+            <textarea
+              class="form-control"
+              id="review-remarks"
+              name="remarks"
+              rows="4"
+              placeholder="Type your feedback for the requester..."
+              required
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning">Send for Review</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
@@ -250,12 +300,42 @@ document.addEventListener('DOMContentLoaded', function () {
     var term = (input.value || '').toLowerCase();
     var rows = table.querySelectorAll('tbody tr');
     rows.forEach(function (row) {
-      var text = row.textContent.toLowerCase();
-      row.style.display = text.indexOf(term) !== -1 ? '' : 'none';
+      var cells = row.querySelectorAll('td');
+      if (!cells.length) {
+        row.style.display = '';
+        return;
+      }
+      var nameText = (cells[0] && cells[0].textContent ? cells[0].textContent : '').toLowerCase();
+      var subjectText = (cells[1] && cells[1].textContent ? cells[1].textContent : '').toLowerCase();
+      var haystack = nameText + ' ' + subjectText;
+      row.style.display = haystack.indexOf(term) !== -1 ? '' : 'none';
     });
   }
   input.addEventListener('input', filterRows);
   btn.addEventListener('click', filterRows);
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var modal = $('#review-modal');
+  var form = document.getElementById('review-form');
+  var remarks = document.getElementById('review-remarks');
+  var title = document.getElementById('review-request-title');
+  if (!form || !remarks || !title) {
+    return;
+  }
+
+  document.querySelectorAll('.review-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var requestId = btn.getAttribute('data-request-id');
+      var requestTitle = btn.getAttribute('data-request-title') || '';
+      form.action = <?= json_encode($this->Url->build(['controller' => 'Requests', 'action' => 'decline'])) ?> + '/' + requestId;
+      title.textContent = requestTitle ? 'Subject: ' + requestTitle : '';
+      remarks.value = '';
+      modal.modal('show');
+    });
+  });
 });
 </script>
 

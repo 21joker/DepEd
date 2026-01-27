@@ -188,6 +188,7 @@ class RequestsController extends AppController
         $lastRequestId = $this->request->getSession()->read('last_request_id');
         $lastRequest = null;
         $approvalStatuses = [];
+        $approvalRemarks = [];
         $authId = (int)$this->Auth->user('id');
 
         if ($authId) {
@@ -203,16 +204,24 @@ class RequestsController extends AppController
         }
 
         if ($lastRequest) {
-            $approvalStatuses = $this->RequestApprovals->find()
-                ->select(['admin_user_id', 'status'])
+            $approvalRows = $this->RequestApprovals->find()
+                ->select(['admin_user_id', 'status', 'remarks'])
                 ->where(['request_id' => $lastRequest->id])
                 ->enableHydration(false)
-                ->all()
-                ->combine('admin_user_id', 'status')
-                ->toArray();
+                ->all();
+            foreach ($approvalRows as $row) {
+                $adminKey = (int)($row['admin_user_id'] ?? 0);
+                if (!$adminKey) {
+                    continue;
+                }
+                $approvalStatuses[$adminKey] = $row['status'] ?? null;
+                if (!empty($row['remarks'])) {
+                    $approvalRemarks[$adminKey] = (string)$row['remarks'];
+                }
+            }
         }
 
-        $this->set(compact('requestEntity', 'admins', 'lastRequest', 'approvalStatuses'));
+        $this->set(compact('requestEntity', 'admins', 'lastRequest', 'approvalStatuses', 'approvalRemarks'));
     }
 
     public function edit($id = null)
@@ -415,17 +424,26 @@ class RequestsController extends AppController
 
         $lastRequest = $requestEntity;
         $approvalStatuses = [];
+        $approvalRemarks = [];
         if ($lastRequest) {
-            $approvalStatuses = $this->RequestApprovals->find()
-                ->select(['admin_user_id', 'status'])
+            $approvalRows = $this->RequestApprovals->find()
+                ->select(['admin_user_id', 'status', 'remarks'])
                 ->where(['request_id' => $lastRequest->id])
                 ->enableHydration(false)
-                ->all()
-                ->combine('admin_user_id', 'status')
-                ->toArray();
+                ->all();
+            foreach ($approvalRows as $row) {
+                $adminKey = (int)($row['admin_user_id'] ?? 0);
+                if (!$adminKey) {
+                    continue;
+                }
+                $approvalStatuses[$adminKey] = $row['status'] ?? null;
+                if (!empty($row['remarks'])) {
+                    $approvalRemarks[$adminKey] = (string)$row['remarks'];
+                }
+            }
         }
 
-        $this->set(compact('requestEntity', 'admins', 'lastRequest', 'approvalStatuses', 'selectedFunds'));
+        $this->set(compact('requestEntity', 'admins', 'lastRequest', 'approvalStatuses', 'approvalRemarks', 'selectedFunds'));
         $this->render('add');
     }
 
@@ -493,6 +511,7 @@ class RequestsController extends AppController
         }
 
         $adminApprovalStatus = [];
+        $adminApprovalMeta = [];
         if ($adminId > 0 && !empty($requests)) {
             try {
                 $this->loadModel('RequestApprovals');
@@ -503,16 +522,26 @@ class RequestsController extends AppController
                     }
                 }
                 if (!empty($requestIds)) {
-                    $adminApprovalStatus = $this->RequestApprovals->find()
-                        ->select(['request_id', 'status'])
+                    $rows = $this->RequestApprovals->find()
+                        ->select(['request_id', 'status', 'created'])
                         ->where([
                             'request_id IN' => $requestIds,
                             'admin_user_id' => $adminId,
                         ])
                         ->enableHydration(false)
                         ->all()
-                        ->combine('request_id', 'status')
                         ->toArray();
+                    foreach ($rows as $row) {
+                        $rid = (int)($row['request_id'] ?? 0);
+                        if (!$rid) {
+                            continue;
+                        }
+                        $adminApprovalStatus[$rid] = $row['status'] ?? null;
+                        $adminApprovalMeta[$rid] = [
+                            'status' => $row['status'] ?? null,
+                            'created' => $row['created'] ?? null,
+                        ];
+                    }
                 }
             } catch (\Throwable $e) {
                 // Ignore if approvals table isn't available.
@@ -527,7 +556,7 @@ class RequestsController extends AppController
             $this->viewBuilder()->setLayout('ajax');
         }
         unset($counts['deleted']);
-        $this->set(compact('requests', 'counts', 'pageTitle', 'headerBadge', 'viewType', 'inModal', 'adminApprovalStatus'));
+        $this->set(compact('requests', 'counts', 'pageTitle', 'headerBadge', 'viewType', 'inModal', 'adminApprovalStatus', 'adminApprovalMeta'));
     }
 
     public function approved()
@@ -916,6 +945,12 @@ class RequestsController extends AppController
 
         $this->request->allowMethod(['post']);
 
+        $remarks = trim((string)$this->request->getData('remarks'));
+        if ($remarks === '') {
+            $this->Flash->error('Please enter remarks before marking for review.');
+            return $this->redirect(['action' => 'pending']);
+        }
+
         $requestEntity = $this->Requests->get($id);
         $this->loadModel('RequestApprovals');
         $adminId = (int)$this->Auth->user('id');
@@ -926,6 +961,7 @@ class RequestsController extends AppController
 
         if ($existing) {
             $existing->status = 'declined';
+            $existing->remarks = $remarks;
             $existing->created = FrozenTime::now();
             if (!$this->RequestApprovals->save($existing)) {
                 $this->Flash->error('Failed to record decline.');
@@ -936,6 +972,7 @@ class RequestsController extends AppController
             $decline->request_id = $requestEntity->id;
             $decline->admin_user_id = $adminId;
             $decline->status = 'declined';
+            $decline->remarks = $remarks;
             $decline->created = FrozenTime::now();
             if (!$this->RequestApprovals->save($decline)) {
                 $this->Flash->error('Failed to record decline.');
@@ -958,9 +995,9 @@ class RequestsController extends AppController
         }
 
         if ($this->Requests->save($requestEntity)) {
-            $this->Flash->success('Request declined.');
+            $this->Flash->success('Request sent for review.');
         } else {
-            $this->Flash->error('Failed to decline request.');
+            $this->Flash->error('Failed to send request for review.');
         }
 
         return $this->redirect(['action' => 'pending']);
@@ -1245,6 +1282,61 @@ class RequestsController extends AppController
 
     private function buildCounts(int $adminId, array $hiddenRequestIds = []): array
     {
+        if ($adminId > 0) {
+            try {
+                $this->loadModel('RequestApprovals');
+
+                $pendingQuery = $this->Requests->find()
+                    ->where(['Requests.status !=' => 'deleted'])
+                    ->where(function ($exp) {
+                        return $exp->lt('approvals_count', new IdentifierExpression('approvals_needed'));
+                    })
+                    ->notMatching('RequestApprovals', function ($q) use ($adminId) {
+                        return $q->where(['RequestApprovals.admin_user_id' => $adminId]);
+                    });
+                if (!empty($hiddenRequestIds)) {
+                    $pendingQuery->where(['Requests.id NOT IN' => $hiddenRequestIds]);
+                }
+                $pendingCount = $pendingQuery->count();
+
+                $approvedQuery = $this->Requests->find()
+                    ->where(['Requests.status !=' => 'deleted'])
+                    ->matching('RequestApprovals', function ($q) use ($adminId) {
+                        return $q->where([
+                            'RequestApprovals.admin_user_id' => $adminId,
+                            'RequestApprovals.status' => 'approved',
+                        ]);
+                    })
+                    ->distinct(['Requests.id']);
+                if (!empty($hiddenRequestIds)) {
+                    $approvedQuery->where(['Requests.id NOT IN' => $hiddenRequestIds]);
+                }
+                $approvedCount = $approvedQuery->count();
+
+                $rejectedQuery = $this->Requests->find()
+                    ->where(['Requests.status !=' => 'deleted'])
+                    ->matching('RequestApprovals', function ($q) use ($adminId) {
+                        return $q->where([
+                            'RequestApprovals.admin_user_id' => $adminId,
+                            'RequestApprovals.status' => 'declined',
+                        ]);
+                    })
+                    ->distinct(['Requests.id']);
+                if (!empty($hiddenRequestIds)) {
+                    $rejectedQuery->where(['Requests.id NOT IN' => $hiddenRequestIds]);
+                }
+                $rejectedCount = $rejectedQuery->count();
+
+                return [
+                    'pending' => $pendingCount,
+                    'approved' => $approvedCount,
+                    'rejected' => $rejectedCount,
+                ];
+            } catch (\Throwable $e) {
+                // Fallback to global counts if approvals table isn't available.
+            }
+        }
+
         $pendingQuery = $this->Requests->find()
             ->where(['status !=' => 'deleted'])
             ->where(function ($exp) {

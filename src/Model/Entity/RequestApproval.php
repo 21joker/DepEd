@@ -12,6 +12,7 @@ use Cake\ORM\Entity;
  * @property int $request_id
  * @property int $admin_user_id
  * @property string|null $status
+ * @property string|null $remarks
  * @property \Cake\I18n\FrozenTime $created
  */
 class RequestApproval extends Entity
@@ -20,6 +21,7 @@ class RequestApproval extends Entity
         'request_id' => true,
         'admin_user_id' => true,
         'status' => true,
+        'remarks' => true,
         'created' => true,
     ];
 }

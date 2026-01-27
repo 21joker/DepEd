@@ -135,6 +135,7 @@ $cakeDescription = 'SDO ACTIVTITY';
                     $controller = $this->getRequest()->getParam('controller');
                     $action = $this->getRequest()->getParam('action');
                     $isRequestsPending = $controller === 'Requests' && $action === 'pending';
+                    $isLogs = $controller === 'Logs' && $action === 'index';
                     $isUsersIndex = $controller === 'Users' && $action === 'index';
                     $isUsersEnroll = $isUsersIndex && (string)$this->getRequest()->getQuery('enroll') === '1';
                     $isUsersManage = $isUsersIndex && !$isUsersEnroll;
@@ -155,6 +156,15 @@ $cakeDescription = 'SDO ACTIVTITY';
                             <i class="nav-icon fas fa-user-friends"></i>
                             <p>
                                 Proposal
+                            </p>
+                        </a>
+                        <?php endif; ?>
+
+                        <?php if (in_array($auth['role'] ?? null, ['Superuser'], true)): ?>
+                        <a href="/usermngt/logs" class="nav-link <?= $isLogs ? 'active' : '' ?>">
+                            <i class="nav-icon fas fa-clipboard-list"></i>
+                            <p>
+                                Logs
                             </p>
                         </a>
                         <?php endif; ?>
@@ -202,12 +212,6 @@ $cakeDescription = 'SDO ACTIVTITY';
                         <h1 class="m-0"><?= h($pageHeading) ?></h1>
                         
     <div class="header-right">
-        <?php if ($this->getRequest()->getParam('controller') !== 'Requests' || $this->getRequest()->getParam('action') !== 'add'): ?>
-        <a class="notification-wrapper" href="<?= $this->Url->build('/requests/pending') ?>">
-            <i class="fa fa-bell"></i>
-            <span id="notif-count" class="notif-badge">0</span>
-        </a>
-        <?php endif; ?>
 
                     </div><!-- /.col -->
                     <div class="col-sm-6">
@@ -301,9 +305,39 @@ document.addEventListener('DOMContentLoaded', function () {
         modalTitle.textContent = title || 'Details';
         modalBody.innerHTML = '<div class="text-muted">Loading...</div>';
         $('#dashboard-modal').modal('show');
-        fetch(url, { credentials: 'same-origin' })
-            .then(function (resp) { return resp.text(); })
+        var loginUrl = <?= json_encode($this->Url->build(['controller' => 'Users', 'action' => 'login'])) ?>;
+        var webroot = <?= json_encode($this->request->getAttribute('webroot')) ?> || '/';
+        var resolvedUrl = url;
+        if (url && !/^https?:\/\//i.test(url)) {
+            var base = window.location.origin + (webroot || '/');
+            if (base.charAt(base.length - 1) !== '/') {
+                base += '/';
+            }
+            try {
+                resolvedUrl = new URL(url, base).toString();
+            } catch (e) {
+                resolvedUrl = url;
+            }
+        }
+        fetch(resolvedUrl, {
+            credentials: 'include',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function (resp) {
+                if (resp.status === 401 || resp.status === 403) {
+                    modalBody.innerHTML = '<div class="text-danger">Session expired. Please refresh the page.</div>';
+                    return '';
+                }
+                return resp.text();
+            })
             .then(function (html) {
+                if (!html) {
+                    return;
+                }
+                if (html.indexOf('login-card') !== -1 || html.indexOf('Sign in to continue') !== -1) {
+                    modalBody.innerHTML = '<div class="text-danger">Session expired. Please refresh the page.</div>';
+                    return;
+                }
                 modalBody.innerHTML = html;
                 bindModalLinks();
             })
@@ -328,31 +362,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     bindModalLinks();
-});
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    var badge = document.getElementById('notif-count');
-    if (!badge) {
-        return;
-    }
-
-    var url = <?= json_encode($this->Url->build('/requests/pending-count')) ?>;
-
-    function loadCount() {
-        fetch(url, { credentials: 'same-origin' })
-            .then(function (resp) { return resp.json(); })
-            .then(function (data) {
-                var count = Number(data && data.count) || 0;
-                badge.textContent = String(count);
-                badge.style.display = count > 0 ? 'inline-block' : 'none';
-            })
-            .catch(function () {});
-    }
-
-    loadCount();
-    setInterval(loadCount, 30000);
 });
 </script>
 

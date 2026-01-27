@@ -321,7 +321,22 @@ class UsersController extends AppController
         if ($this->request->is('post')) {
             $user = $this->Auth->identify();
             if ($user) {
+                $this->request->getSession()->renew();
+                $this->request->getSession()->delete('last_request_id');
                 $this->Auth->setUser($user);
+                try {
+                    $this->loadModel('LoginLogs');
+                    $log = $this->LoginLogs->newEmptyEntity();
+                    $log->user_id = (int)($user['id'] ?? 0) ?: null;
+                    $log->username = (string)($user['username'] ?? '');
+                    $log->role = (string)($user['role'] ?? '');
+                    $log->ip = (string)$this->request->clientIp();
+                    $log->user_agent = (string)$this->request->getHeaderLine('User-Agent');
+                    $log->created = \Cake\I18n\FrozenTime::now();
+                    $this->LoginLogs->save($log);
+                } catch (\Throwable $e) {
+                    // Ignore logging failures.
+                }
                 if (in_array($user['role'], ['Superuser', 'Administrator'], true)) {
                     return $this->redirect(['controller' => 'Requests', 'action' => 'pending']);
                 }
