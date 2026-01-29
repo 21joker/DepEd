@@ -120,6 +120,11 @@ class UsersTable extends Table
             ->allowEmptyString('degree');
 
         $validator
+            ->scalar('rank')
+            ->maxLength('rank', 50)
+            ->allowEmptyString('rank');
+
+        $validator
             ->scalar('position')
             ->maxLength('position', 100)
             ->allowEmptyString('position');

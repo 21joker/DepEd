@@ -104,6 +104,13 @@
                         'label' => false,
                         'id' => 'degree-enroll'
                     ]) ?>
+                    <label>Rank</label>
+                    <?= $this->Form->control('rank', [
+                        'class' => 'form-control',
+                        'placeholder' => 'Rank',
+                        'label' => false,
+                        'id' => 'rank-enroll'
+                    ]) ?>
                     <label>Position</label>
                     <?= $this->Form->control('position', [
                         'class' => 'form-control',
@@ -209,6 +216,13 @@
                         'label' => false,
                         'id' => 'degree-manage'
                     ]) ?>
+                    <label>Rank</label>
+                    <?= $this->Form->control('rank', [
+                        'class' => 'form-control',
+                        'placeholder' => 'Rank',
+                        'label' => false,
+                        'id' => 'rank-manage'
+                    ]) ?>
                     <label>Position</label>
                     <?= $this->Form->control('position', [
                         'class' => 'form-control',
@@ -291,6 +305,7 @@
                 <div class="mb-2"><strong>Full Name:</strong> <span id="view-fullname">—</span></div>
                 <div class="mb-2"><strong>Suffix:</strong> <span id="view-suffix">—</span></div>
                 <div class="mb-2"><strong>Degree:</strong> <span id="view-degree">—</span></div>
+                <div class="mb-2"><strong>Rank:</strong> <span id="view-rank">—</span></div>
                 <div class="mb-2"><strong>Position:</strong> <span id="view-position">—</span></div>
                 <div class="mb-2"><strong>Email Address:</strong> <span id="view-email">—</span></div>
                 <div class="mb-2"><strong>Level of Governance:</strong> <span id="view-level">—</span></div>

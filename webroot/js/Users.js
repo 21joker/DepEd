@@ -23,6 +23,7 @@ $(function () {
             $('#last-name-enroll').val('');
             $('#suffix-enroll').val('');
             $('#degree-enroll').val('');
+            $('#rank-enroll').val('');
             $('#position-enroll').val('');
             $('#email-address-enroll').val('');
             $('#level-of-governance-enroll').val('');
@@ -58,6 +59,7 @@ $(function () {
                     $('#last-name-manage').val(data.last_name || '');
                     $('#suffix-manage').val(data.suffix || '');
                     $('#degree-manage').val(data.degree || '');
+                    $('#rank-manage').val(data.rank || '');
                     $('#position-manage').val(data.position || '');
                     $('#email-address-manage').val(data.email_address || '');
                     $('#reset-email, [name="reset_email"]').val(data.email_address || '');
@@ -105,6 +107,7 @@ $(function () {
                     $('#last-name-manage').val(data.last_name || '');
                     $('#suffix-manage').val(data.suffix || '');
                     $('#degree-manage').val(data.degree || '');
+                    $('#rank-manage').val(data.rank || '');
                     $('#position-manage').val(data.position || '');
                     $('#email-address-manage').val(data.email_address || '');
                     $('#reset-email, [name="reset_email"]').val(data.email_address || '');
@@ -152,14 +155,14 @@ $(function () {
                 if (data.middle_initial) { parts.push(data.middle_initial); }
                 if (data.last_name) { parts.push(data.last_name); }
                 var fullName = parts.join(' ');
-                if (data.suffix) {
-                    fullName = fullName ? (fullName + ' ' + data.suffix) : data.suffix;
-                }
 
                 $('#view-username').text(data.username || '—');
                 $('#view-fullname').text(fullName || data.username || '—');
                 $('#view-suffix').text(data.suffix || '—');
-                $('#view-degree').text(data.degree || '—');
+                $('#view-degree').text(data.degree || '�');
+                if ($('#view-rank').length) {
+                    $('#view-rank').text(data.rank || '�');
+                }
                 $('#view-position').text(data.position || '—');
                 $('#view-email').text(data.email_address || '—');
                 $('#view-level').text(data.level_of_governance || '—');
@@ -222,6 +225,7 @@ $(function () {
             last_name: '#last-name-enroll',
             suffix: '#suffix-enroll',
             degree: '#degree-enroll',
+            rank: '#rank-enroll',
             position: '#position-enroll',
             email_address: '#email-address-enroll',
             level_of_governance: '#level-of-governance-enroll',
@@ -233,6 +237,7 @@ $(function () {
             last_name: '#last-name-manage',
             suffix: '#suffix-manage',
             degree: '#degree-manage',
+            rank: '#rank-manage',
             position: '#position-manage',
             email_address: '#email-address-manage',
             level_of_governance: '#level-of-governance-manage',
@@ -271,6 +276,7 @@ $(function () {
                     $('#last-name-enroll').val('');
                     $('#suffix-enroll').val('');
                     $('#degree-enroll').val('');
+                    $('#rank-enroll').val('');
                     $('#position-enroll').val('');
                     $('#email-address-enroll').val('');
                     $('#level-of-governance-enroll').val('');
@@ -331,6 +337,7 @@ $(function () {
         $('#last-name-enroll').val('');
         $('#suffix-enroll').val('');
         $('#degree-enroll').val('');
+        $('#rank-enroll').val('');
         $('#position-enroll').val('');
         $('#email-address-enroll').val('');
         $('#level-of-governance-enroll').val('');
@@ -401,3 +408,6 @@ function getUsers() {
         }
     });
 }
+
+
+

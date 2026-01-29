@@ -82,7 +82,7 @@ class UsersController extends AppController
         if ($this->request->is('post')) {
             $data = $this->request->getData();
             $schema = $this->Users->getSchema();
-            foreach (['first_name','middle_initial','last_name','suffix','degree','position','email_address','level_of_governance'] as $field) {
+            foreach (['first_name','middle_initial','last_name','suffix','degree','rank','position','email_address','level_of_governance'] as $field) {
                 if (!$schema->hasColumn($field)) {
                     unset($data[$field]);
                 }
@@ -176,7 +176,7 @@ class UsersController extends AppController
                 }
                 unset($data['reset_mode'], $data['reset_email']);
                 $schema = $this->Users->getSchema();
-                foreach (['first_name','middle_initial','last_name','suffix','degree','position','email_address','level_of_governance'] as $field) {
+                foreach (['first_name','middle_initial','last_name','suffix','degree','rank','position','email_address','level_of_governance'] as $field) {
                     if (!$schema->hasColumn($field)) {
                         unset($data[$field]);
                     }
@@ -194,6 +194,7 @@ class UsersController extends AppController
                         'last_name',
                         'suffix',
                         'degree',
+                        'rank',
                         'position',
                         'email_address',
                         'level_of_governance',
@@ -524,6 +525,7 @@ class UsersController extends AppController
             'last_name',
             'suffix',
             'degree',
+            'rank',
             'position',
             'email_address',
             'level_of_governance',

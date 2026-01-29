@@ -155,7 +155,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
           <thead>
             <tr>
               <th style="width: 18%;">Name</th>
-              <th>Subject</th>
+              <th>Title</th>
               <th style="width: 18%;">Submitted</th>
 <?php if ($showStatus): ?>
                 <th style="width: 12%;">Status</th>

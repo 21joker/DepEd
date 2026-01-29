@@ -1135,6 +1135,44 @@ class RequestsController extends AppController
         $this->loadModel('RequestApprovals');
         $adminId = (int)$this->Auth->user('id');
 
+        $hierarchy = $this->getApproverHierarchy();
+        $currentUser = $this->Users->find()
+            ->select(['id', 'username'])
+            ->where(['id' => $adminId])
+            ->first();
+        $currentRank = $this->getApproverRank($currentUser->username ?? null, $hierarchy);
+        if ($currentRank !== null) {
+            $admins = $this->Users->find()
+                ->select(['id', 'username'])
+                ->where(['role IN' => ['Administrator', 'Approver']])
+                ->all();
+            $lowerAdminIds = [];
+            foreach ($admins as $admin) {
+                $rank = $this->getApproverRank($admin->username ?? null, $hierarchy);
+                if ($rank !== null && $rank < $currentRank) {
+                    $lowerAdminIds[] = (int)$admin->id;
+                }
+            }
+            if (!empty($lowerAdminIds)) {
+                $actedLower = $this->RequestApprovals->find()
+                    ->select(['admin_user_id'])
+                    ->where([
+                        'request_id' => $requestEntity->id,
+                        'status IN' => ['approved', 'declined'],
+                        'admin_user_id IN' => $lowerAdminIds,
+                    ])
+                    ->enableHydration(false)
+                    ->all()
+                    ->extract('admin_user_id')
+                    ->toList();
+                $pendingLower = array_diff($lowerAdminIds, array_map('intval', $actedLower));
+                if (!empty($pendingLower)) {
+                    $this->Flash->error('Please wait for lower-level actions before marking for review.');
+                    return $this->redirect(['action' => 'pending']);
+                }
+            }
+        }
+
         $existing = $this->RequestApprovals->find()
             ->where(['request_id' => $requestEntity->id, 'admin_user_id' => $adminId])
             ->first();

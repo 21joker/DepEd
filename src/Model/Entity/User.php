@@ -18,6 +18,7 @@ use Cake\ORM\Entity;
  * @property string|null $last_name
  * @property string|null $suffix
  * @property string|null $degree
+ * @property string|null $rank
  * @property string|null $position
  * @property string|null $email_address
  * @property string|null $level_of_governance
@@ -46,6 +47,7 @@ class User extends Entity
         'last_name' => true,
         'suffix' => true,
         'degree' => true,
+        'rank' => true,
         'position' => true,
         'email_address' => true,
         'level_of_governance' => true,

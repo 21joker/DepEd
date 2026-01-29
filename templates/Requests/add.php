@@ -119,12 +119,21 @@
 
 <div class="col-12">
     <div class="card">
-        <div class="card-header d-flex align-items-center">
-            <h3 class="card-title mb-0">My Proposal Forms</h3>
-            <button type="button" class="btn btn-primary btn-sm ml-auto" id="toggle-proposal-form">
-                <i class="fas fa-plus"></i>
-                Create Form
-            </button>
+        <div class="card-header">
+            <div class="d-flex align-items-center">
+                <h3 class="card-title mb-0">My Proposal Forms</h3>
+                <input
+                    type="text"
+                    class="form-control form-control-sm ml-3"
+                    id="proposal-search"
+                    placeholder="Search..."
+                    style="max-width: 240px;"
+                >
+                <button type="button" class="btn btn-primary btn-sm ml-auto" id="toggle-proposal-form">
+                    <i class="fas fa-plus"></i>
+                    Create Form
+                </button>
+            </div>
         </div>
         <div class="card-body table-responsive">
             <?php if (!empty($userRequests)): ?>
@@ -268,6 +277,17 @@
                                         >
                                             <i class="fas fa-edit"></i>
                                             Edit
+                                        </a>
+                                    <?php endif; ?>
+                                    <?php if (!empty($isApproved) || in_array($request->status ?? null, ['approved', 'Approved'], true)): ?>
+                                        <a
+                                            class="btn btn-sm btn-danger action-btn"
+                                            href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'exportPdf', $request->id]) ?>"
+                                            target="_blank"
+                                            rel="noopener"
+                                        >
+                                            <i class="fas fa-file-pdf"></i>
+                                            Export PDF
                                         </a>
                                     <?php endif; ?>
                                 </td>
@@ -481,7 +501,7 @@
                         ]) ?>
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label for="attachment-sfwp">SFWP</label>
+                        <label for="attachment-sfwp">S/WFP</label>
                         <?= $this->Form->control('attachment_sfwp', [
                             'type' => 'file',
                             'label' => false,
@@ -586,6 +606,18 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         tbody.appendChild(newRow);
     });
+
+    var searchInput = document.getElementById('proposal-search');
+    var proposalTable = document.getElementById('proposal-forms-table');
+    if (searchInput && proposalTable) {
+        searchInput.addEventListener('input', function () {
+            var query = searchInput.value.toLowerCase();
+            proposalTable.querySelectorAll('tbody tr').forEach(function (row) {
+                var text = row.textContent.toLowerCase();
+                row.style.display = text.indexOf(query) !== -1 ? '' : 'none';
+            });
+        });
+    }
 });
 </script>
 
