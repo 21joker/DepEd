@@ -59,6 +59,20 @@ function _req_field(array $fields, string $label): string
 {
     return $fields[$label] ?? '';
 }
+
+function _format_peso(string $value): string
+{
+    $raw = trim($value);
+    if ($raw === '') {
+        return $raw;
+    }
+    $normalized = preg_replace('/[^0-9.\-]/', '', $raw);
+    if ($normalized === '' || $normalized === '-' || $normalized === '.') {
+        return $raw;
+    }
+    $number = (float)$normalized;
+    return '₱ ' . number_format($number, 2, '.', ',');
+}
 ?>
 
 <?php if (!$requestEntity): ?>
@@ -297,7 +311,7 @@ body {
         <tbody>
             <tr>
                 <td class="label">Budget Requirement:</td>
-                <td class="proposal-value"><?= h(_req_field($fields, 'Budget Requirement')) ?></td>
+                <td class="proposal-value"><?= h(_format_peso(_req_field($fields, 'Budget Requirement'))) ?></td>
             </tr>
             <tr>
                 <td class="label">Source of Fund:</td>
@@ -325,8 +339,8 @@ body {
                                     <tr>
                                         <td><?= h($row['nature'] ?? '') ?></td>
                                         <td><?= h($row['no'] ?? '') ?></td>
-                                        <td><?= h($row['amount'] ?? '') ?></td>
-                                        <td><?= h($row['total'] ?? '') ?></td>
+                                        <td><?= h(_format_peso((string)($row['amount'] ?? ''))) ?></td>
+                                        <td><?= h(_format_peso((string)($row['total'] ?? ''))) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php endif; ?>
@@ -336,7 +350,7 @@ body {
             </tr>
             <tr>
                 <td class="label">Grand Total</td>
-                <td class="proposal-value"><?= h(_req_field($fields, 'Grand Total')) ?></td>
+                <td class="proposal-value"><?= h(_format_peso(_req_field($fields, 'Grand Total'))) ?></td>
             </tr>
         </tbody>
     </table>

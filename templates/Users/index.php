@@ -49,7 +49,7 @@
     </div>
 </div>
 
-<?php $this->Html->script('/js/Users.js?v=20260129', ['block' => 'scriptBottom']); ?>
+<?php $this->Html->script('/js/Users.js?v=' . filemtime(WWW_ROOT . 'js/Users.js'), ['block' => 'scriptBottom']); ?>
 <div class="modal fade" id="users-modal">
     <div class="modal-dialog  modal-md">
         <div class="modal-content">
@@ -253,7 +253,8 @@
                             'class' => 'form-control',
                             'placeholder' => 'Email Address',
                             'label' => false,
-                            'type' => 'email'
+                            'type' => 'email',
+                            'id' => 'reset-email'
                         ]) ?>
                         <small class="text-muted d-block mb-2">
                             Enter the user email to generate a new 8-digit password.

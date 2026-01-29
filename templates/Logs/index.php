@@ -18,6 +18,19 @@
   gap: 12px;
   align-items: center;
 }
+.logs-toolbar .export-csv-wrap {
+  margin-left: auto;
+}
+.btn-export-csv {
+  border-color: #6c757d;
+  color: #6c757d;
+}
+.btn-export-csv:hover,
+.btn-export-csv:focus {
+  background-color: #28a745;
+  border-color: #28a745;
+  color: #fff;
+}
 .logs-toolbar .form-control {
   min-width: 180px;
 }
@@ -62,7 +75,7 @@
         <div class="pt-3">
           <button class="btn btn-primary btn-sm" type="submit">Apply</button>
         </div>
-        <div class="pt-3">
+        <div class="pt-3 export-csv-wrap">
           <?php
             $exportQuery = [
               'period' => $period,
@@ -72,7 +85,7 @@
               'q' => $search ?? '',
             ];
           ?>
-          <a class="btn btn-outline-secondary btn-sm" href="<?= $this->Url->build(['controller' => 'Logs', 'action' => 'export', '?' => $exportQuery]) ?>">
+          <a class="btn btn-outline-secondary btn-sm btn-export-csv" href="<?= $this->Url->build(['controller' => 'Logs', 'action' => 'export', '?' => $exportQuery]) ?>">
             Export CSV
           </a>
         </div>

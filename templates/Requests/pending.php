@@ -92,7 +92,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
 </style>
 
 <!-- ===== Stats Cards ===== -->
-<?php if (!$inModal): ?>
+<?php if (!$inModal && ($auth['role'] ?? '') !== 'Superuser'): ?>
 <div class="dashboard-row">
   <div class="small-box bg-success">
     <div class="inner">

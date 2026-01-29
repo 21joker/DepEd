@@ -17,7 +17,7 @@ class RequestsController extends AppController
     public function beforeFilter(EventInterface $event)
     {
         parent::beforeFilter($event);
-        $this->Auth->allow(['add']);
+        $this->Auth->allow(['add', 'exportPdf']);
     }
 
     public function add()
@@ -29,6 +29,7 @@ class RequestsController extends AppController
         if ($this->request->is('post')) {
             $formData = $this->request->getData();
             $requestEntity = $this->Requests->patchEntity($requestEntity, $formData);
+            $attachmentUploads = $this->prepareAttachmentUploads($formData);
             $rawName = trim((string)$this->request->getData('name'));
             $rawEmail = trim((string)$this->request->getData('email'));
             if ($rawName === '' && !empty($formData['proponents'])) {
@@ -106,6 +107,11 @@ class RequestsController extends AppController
             if ($scheduleFrom !== '' || $scheduleTo !== '') {
                 $detailsLines[] = 'Activity Schedule: ' . trim($scheduleFrom . ' - ' . $scheduleTo, ' -');
             }
+            foreach ($attachmentUploads as $label => $upload) {
+                if (!empty($upload['filename'])) {
+                    $detailsLines[] = $label . ': ' . $upload['filename'];
+                }
+            }
 
             $nature = $formData['expenditure_nature'] ?? [];
             $count = $formData['expenditure_no'] ?? [];
@@ -158,6 +164,7 @@ class RequestsController extends AppController
                     ],
                     ['id' => $requestEntity->id]
                 );
+                $this->storeAttachmentUploads($attachmentUploads, (int)$requestEntity->id);
                 if ($rawName !== '' || $rawEmail !== '') {
                     $this->Requests->updateAll(
                         [
@@ -189,7 +196,12 @@ class RequestsController extends AppController
         $lastRequest = null;
         $approvalStatuses = [];
         $approvalRemarks = [];
+        $approvalMeta = [];
         $authId = (int)$this->Auth->user('id');
+        $userRequests = [];
+        $requestSummaries = [];
+        $showForm = $this->request->is(['post', 'put', 'patch']) || $requestEntity->hasErrors();
+        $isEdit = false;
 
         if ($authId) {
             $lastRequest = $this->Requests->find()
@@ -197,6 +209,26 @@ class RequestsController extends AppController
                 ->orderDesc('created_at')
                 ->orderDesc('id')
                 ->first();
+            $userRequests = $this->Requests->find()
+                ->where(['user_id' => $authId])
+                ->orderDesc('created_at')
+                ->orderDesc('id')
+                ->all();
+            foreach ($userRequests as $request) {
+                $fields = $this->extractFieldsFromDetails((string)($request->details ?? ''));
+                $requestSummaries[$request->id] = [
+                    'pmis_activity_code' => $fields['PMIS Activity Code'] ?? '',
+                    'title_of_activity' => $fields['Title of Activity'] ?? ($request->title ?? ''),
+                    'activity_schedule' => $fields['Activity Schedule'] ?? '',
+                    'budget_requirement' => $fields['Budget Requirement'] ?? '',
+                    'source_of_fund' => $fields['Source of Fund'] ?? '',
+                    'grand_total' => $fields['Grand Total'] ?? '',
+                    'attachment_sub_aro' => $fields['Attachment SUB-ARO'] ?? '',
+                    'attachment_sfwp' => $fields['Attachment SFWP'] ?? '',
+                    'attachment_ar' => $fields['Attachment AR'] ?? '',
+                    'attachment_ac' => $fields['Attachment AC'] ?? '',
+                ];
+            }
         } elseif ($lastRequestId) {
             $lastRequest = $this->Requests->find()
                 ->where(['id' => $lastRequestId])
@@ -205,7 +237,7 @@ class RequestsController extends AppController
 
         if ($lastRequest) {
             $approvalRows = $this->RequestApprovals->find()
-                ->select(['admin_user_id', 'status', 'remarks'])
+                ->select(['admin_user_id', 'status', 'remarks', 'created'])
                 ->where(['request_id' => $lastRequest->id])
                 ->enableHydration(false)
                 ->all();
@@ -218,10 +250,24 @@ class RequestsController extends AppController
                 if (!empty($row['remarks'])) {
                     $approvalRemarks[$adminKey] = (string)$row['remarks'];
                 }
+                if (!empty($row['created'])) {
+                    $approvalMeta[$adminKey]['created'] = $row['created'];
+                }
             }
         }
 
-        $this->set(compact('requestEntity', 'admins', 'lastRequest', 'approvalStatuses', 'approvalRemarks'));
+        $this->set(compact(
+            'requestEntity',
+            'admins',
+            'lastRequest',
+            'approvalStatuses',
+            'approvalRemarks',
+            'approvalMeta',
+            'userRequests',
+            'requestSummaries',
+            'showForm',
+            'isEdit'
+        ));
     }
 
     public function edit($id = null)
@@ -256,6 +302,8 @@ class RequestsController extends AppController
         if ($this->request->is(['patch', 'post', 'put'])) {
             $formData = $this->request->getData();
             $requestEntity = $this->Requests->patchEntity($requestEntity, $formData);
+            $attachmentUploads = $this->prepareAttachmentUploads($formData);
+            $existingFields = $this->extractFieldsFromDetails((string)($requestEntity->details ?? ''));
 
             $rawName = trim((string)$this->request->getData('name'));
             $rawEmail = trim((string)$this->request->getData('email'));
@@ -304,6 +352,19 @@ class RequestsController extends AppController
             if ($scheduleFrom !== '' || $scheduleTo !== '') {
                 $detailsLines[] = 'Activity Schedule: ' . trim($scheduleFrom . ' - ' . $scheduleTo, ' -');
             }
+            $attachmentLabels = [
+                'Attachment SUB-ARO',
+                'Attachment SFWP',
+                'Attachment AR',
+                'Attachment AC',
+            ];
+            foreach ($attachmentLabels as $label) {
+                if (!empty($attachmentUploads[$label]['filename'])) {
+                    $detailsLines[] = $label . ': ' . $attachmentUploads[$label]['filename'];
+                } elseif (!empty($existingFields[$label])) {
+                    $detailsLines[] = $label . ': ' . $existingFields[$label];
+                }
+            }
 
             $nature = $formData['expenditure_nature'] ?? [];
             $count = $formData['expenditure_no'] ?? [];
@@ -338,6 +399,7 @@ class RequestsController extends AppController
             }
 
             if ($this->Requests->save($requestEntity)) {
+                $this->storeAttachmentUploads($attachmentUploads, (int)$requestEntity->id);
                 $this->Flash->success('Request updated.');
                 return $this->redirect(['action' => 'add']);
             }
@@ -422,12 +484,38 @@ class RequestsController extends AppController
             ->all();
         $admins = $this->orderApproverHierarchy($admins);
 
+        $userRequests = [];
+        $requestSummaries = [];
+        if ($authId) {
+            $userRequests = $this->Requests->find()
+                ->where(['user_id' => $authId])
+                ->orderDesc('created_at')
+                ->orderDesc('id')
+                ->all();
+            foreach ($userRequests as $request) {
+                $fields = $this->extractFieldsFromDetails((string)($request->details ?? ''));
+                $requestSummaries[$request->id] = [
+                    'pmis_activity_code' => $fields['PMIS Activity Code'] ?? '',
+                    'title_of_activity' => $fields['Title of Activity'] ?? ($request->title ?? ''),
+                    'activity_schedule' => $fields['Activity Schedule'] ?? '',
+                    'budget_requirement' => $fields['Budget Requirement'] ?? '',
+                    'source_of_fund' => $fields['Source of Fund'] ?? '',
+                    'grand_total' => $fields['Grand Total'] ?? '',
+                    'attachment_sub_aro' => $fields['Attachment SUB-ARO'] ?? '',
+                    'attachment_sfwp' => $fields['Attachment SFWP'] ?? '',
+                    'attachment_ar' => $fields['Attachment AR'] ?? '',
+                    'attachment_ac' => $fields['Attachment AC'] ?? '',
+                ];
+            }
+        }
+
         $lastRequest = $requestEntity;
         $approvalStatuses = [];
         $approvalRemarks = [];
+        $approvalMeta = [];
         if ($lastRequest) {
             $approvalRows = $this->RequestApprovals->find()
-                ->select(['admin_user_id', 'status', 'remarks'])
+                ->select(['admin_user_id', 'status', 'remarks', 'created'])
                 ->where(['request_id' => $lastRequest->id])
                 ->enableHydration(false)
                 ->all();
@@ -440,10 +528,27 @@ class RequestsController extends AppController
                 if (!empty($row['remarks'])) {
                     $approvalRemarks[$adminKey] = (string)$row['remarks'];
                 }
+                if (!empty($row['created'])) {
+                    $approvalMeta[$adminKey]['created'] = $row['created'];
+                }
             }
         }
 
-        $this->set(compact('requestEntity', 'admins', 'lastRequest', 'approvalStatuses', 'approvalRemarks', 'selectedFunds'));
+        $showForm = true;
+        $isEdit = true;
+        $this->set(compact(
+            'requestEntity',
+            'admins',
+            'lastRequest',
+            'approvalStatuses',
+            'approvalRemarks',
+            'approvalMeta',
+            'selectedFunds',
+            'userRequests',
+            'requestSummaries',
+            'showForm',
+            'isEdit'
+        ));
         $this->render('add');
     }
 
@@ -549,7 +654,7 @@ class RequestsController extends AppController
         }
 
         $pageTitle = 'Pending Requests';
-        $headerBadge = 'Needs all admin approvals';
+        $headerBadge = 'Note: All Activities needs approver approval';
         $viewType = 'pending';
         $inModal = (bool)$this->request->getQuery('modal');
         if ($inModal) {
@@ -678,13 +783,22 @@ class RequestsController extends AppController
 
     public function view($id = null)
     {
-        $response = $this->ensureAdmin();
-        if ($response) {
-            return $response;
-        }
-
-        $adminId = (int)$this->Auth->user('id');
         $requestEntity = $this->Requests->get($id);
+        $auth = $this->Auth->user();
+        $adminId = (int)($auth['id'] ?? 0);
+        $role = $auth['role'] ?? null;
+        $isAdmin = in_array($role, ['Administrator', 'Superuser', 'Approver'], true);
+        $isOwner = $adminId > 0 && (int)$requestEntity->user_id === $adminId;
+        if (!$auth) {
+            $sessionRequestId = (int)$this->request->getSession()->read('last_request_id');
+            if ($sessionRequestId && $sessionRequestId === (int)$requestEntity->id) {
+                $isOwner = true;
+            }
+        }
+        if (!$isAdmin && !$isOwner) {
+            $this->Flash->error('You are not allowed to access this request.');
+            return $this->redirect(['action' => 'add']);
+        }
 
         $approvals = [];
         try {
@@ -726,30 +840,96 @@ class RequestsController extends AppController
             }
         }
 
+        $remarksList = [];
+        try {
+            $this->loadModel('RequestApprovals');
+            $remarkRows = $this->RequestApprovals->find()
+                ->select(['admin_user_id', 'remarks', 'created'])
+                ->where(['request_id' => $requestEntity->id])
+                ->where(function ($exp) {
+                    return $exp->isNotNull('remarks');
+                })
+                ->enableHydration(false)
+                ->orderDesc('created')
+                ->all()
+                ->toArray();
+            $remarkRows = array_filter($remarkRows, function ($row) {
+                return trim((string)($row['remarks'] ?? '')) !== '';
+            });
+            if (!empty($remarkRows)) {
+                $userIds = array_values(array_unique(array_map('intval', array_column($remarkRows, 'admin_user_id'))));
+                $userMap = [];
+                if (!empty($userIds)) {
+                    $this->loadModel('Users');
+                    $userMap = $this->Users->find()
+                        ->select(['id', 'username'])
+                        ->where(['id IN' => $userIds])
+                        ->enableHydration(false)
+                        ->all()
+                        ->combine('id', 'username')
+                        ->toArray();
+                }
+                foreach ($remarkRows as $row) {
+                    $adminId = (int)($row['admin_user_id'] ?? 0);
+                    $remarksList[] = [
+                        'name' => $userMap[$adminId] ?? 'Reviewer',
+                        'remark' => (string)($row['remarks'] ?? ''),
+                        'created' => $row['created'] ?? null,
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            // Ignore if approvals table isn't available.
+        }
+
         $inModal = (bool)$this->request->getQuery('modal');
         if ($inModal) {
             $this->viewBuilder()->setLayout('ajax');
         }
 
         $pageTitle = 'Request Details';
-        $this->set(compact('requestEntity', 'approvals', 'pageTitle', 'adminId', 'inModal', 'admins', 'approvalStatuses'));
+        $statusOnly = (bool)$this->request->getQuery('status');
+        $this->set(compact(
+            'requestEntity',
+            'approvals',
+            'pageTitle',
+            'adminId',
+            'inModal',
+            'admins',
+            'approvalStatuses',
+            'statusOnly',
+            'remarksList'
+        ));
     }
 
     public function exportPdf($id = null)
     {
-        $response = $this->ensureAdmin();
-        if ($response) {
-            return $response;
+        $requestEntity = $this->Requests->get($id);
+        $auth = $this->Auth->user();
+        $role = $auth['role'] ?? null;
+        $isAdmin = in_array($role, ['Administrator', 'Superuser', 'Approver'], true);
+        $isOwner = false;
+        if (!empty($auth['id']) && (int)$requestEntity->user_id === (int)$auth['id']) {
+            $isOwner = true;
+        }
+        if (!$auth) {
+            $sessionRequestId = (int)$this->request->getSession()->read('last_request_id');
+            if ($sessionRequestId && $sessionRequestId === (int)$requestEntity->id) {
+                $isOwner = true;
+            }
+        }
+        if (!$isAdmin && !$isOwner) {
+            $this->Flash->error('You are not allowed to export this request.');
+            return $this->redirect(['action' => 'add']);
         }
 
-        $requestEntity = $this->Requests->get($id);
         $isApproved = in_array($requestEntity->status, ['approved', 'Approved'], true)
             || ((int)$requestEntity->approvals_needed > 0
                 && (int)$requestEntity->approvals_count >= (int)$requestEntity->approvals_needed);
 
         if (!$isApproved) {
             $this->Flash->error('This request is not fully approved yet.');
-            return $this->redirect(['action' => 'pending']);
+            return $this->redirect(['action' => $isAdmin ? 'pending' : 'add']);
         }
 
         $proponentName = '';
@@ -1243,6 +1423,114 @@ class RequestsController extends AppController
             }
         }
         return null;
+    }
+
+    private function extractFieldsFromDetails(?string $detailsText): array
+    {
+        $fields = [];
+        $detailsText = trim((string)$detailsText);
+        if ($detailsText === '') {
+            return $fields;
+        }
+
+        $lines = preg_split("/\\r?\\n/", $detailsText);
+        $inMatrix = false;
+        foreach ($lines as $line) {
+            $line = trim((string)$line);
+            if ($line === '') {
+                continue;
+            }
+            if (stripos($line, 'Expenditure Matrix:') === 0) {
+                $inMatrix = true;
+                continue;
+            }
+            if ($inMatrix) {
+                if (strpos($line, '- ') === 0) {
+                    continue;
+                }
+                $inMatrix = false;
+            }
+
+            $pos = strpos($line, ':');
+            if ($pos === false) {
+                continue;
+            }
+            $label = trim(substr($line, 0, $pos));
+            $value = trim(substr($line, $pos + 1));
+            if ($label !== '') {
+                $fields[$label] = $value;
+            }
+        }
+
+        return $fields;
+    }
+
+    private function prepareAttachmentUploads(array $formData): array
+    {
+        $fieldMap = [
+            'attachment_sub_aro' => 'Attachment SUB-ARO',
+            'attachment_sfwp' => 'Attachment SFWP',
+            'attachment_ar' => 'Attachment AR',
+            'attachment_ac' => 'Attachment AC',
+        ];
+        $uploads = [];
+
+        foreach ($fieldMap as $field => $label) {
+            $file = $formData[$field] ?? null;
+            if (!($file instanceof \Psr\Http\Message\UploadedFileInterface)) {
+                continue;
+            }
+            if ($file->getError() !== UPLOAD_ERR_OK) {
+                continue;
+            }
+            $clientName = (string)$file->getClientFilename();
+            $base = pathinfo($clientName, PATHINFO_FILENAME);
+            $ext = pathinfo($clientName, PATHINFO_EXTENSION);
+            $safeBase = preg_replace('/[^A-Za-z0-9_\-]/', '_', $base);
+            if ($safeBase === '') {
+                $safeBase = 'file';
+            }
+            $filename = sprintf(
+                '%s_%s_%s',
+                $safeBase,
+                date('YmdHis'),
+                bin2hex(random_bytes(4))
+            );
+            if ($ext !== '') {
+                $filename .= '.' . $ext;
+            }
+            $uploads[$label] = [
+                'file' => $file,
+                'filename' => $filename,
+            ];
+        }
+
+        return $uploads;
+    }
+
+    private function storeAttachmentUploads(array $uploads, int $requestId): void
+    {
+        if ($requestId <= 0 || empty($uploads)) {
+            return;
+        }
+
+        $directory = WWW_ROOT . 'uploads' . DS . 'requests' . DS . $requestId;
+        if (!is_dir($directory)) {
+            @mkdir($directory, 0755, true);
+        }
+
+        foreach ($uploads as $upload) {
+            $file = $upload['file'] ?? null;
+            $filename = $upload['filename'] ?? null;
+            if (!$file instanceof \Psr\Http\Message\UploadedFileInterface || !$filename) {
+                continue;
+            }
+            try {
+                $file->moveTo($directory . DS . $filename);
+            } catch (\Throwable $e) {
+                // Ignore upload errors to avoid blocking form submission.
+            }
+        }
     }
 
     private function ensureAdmin()

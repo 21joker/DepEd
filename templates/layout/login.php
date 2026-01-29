@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -178,9 +178,21 @@ body.login-bg::after {
     color: #115e59;
     text-decoration: underline;
 }
+.login-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 12px;
+    text-align: center;
+    color: #e2e8f0;
+    font-size: 12px;
+    letter-spacing: 0.2px;
+    z-index: 5;
+}
 </style>
 
     <?= $this->fetch('content') ?>
+    <div class="login-footer">©Copyright 2026 21Joker | All Rights Reserved</div>
 
     <?= $this->Html->script([
             '/plugins/jquery/jquery.min.js',
@@ -200,3 +212,4 @@ body.login-bg::after {
     </script>
 </body>
 </html>
+

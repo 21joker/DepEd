@@ -40,6 +40,108 @@ $cakeDescription = 'SDO ACTIVTITY';
     <?= $this->Html->css('/plugins/datatables-buttons/css/buttons.bootstrap4.min.css') ?>
     <?= $this->Html->css('/dist/css/adminlte.min.css') ?>
 
+    <style>
+        :root {
+            --sidebar-width: 250px;
+        }
+        .sidebar-mini.sidebar-collapse {
+            --sidebar-width: 4.6rem;
+        }
+        @media (max-width: 991.98px) {
+            :root {
+                --sidebar-width: 0px;
+            }
+        }
+        .wrapper {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .content-wrapper {
+            flex: 1 0 auto;
+            padding-bottom: 52px;
+        }
+        .main-sidebar .user-panel {
+            align-items: flex-start;
+        }
+        .main-sidebar .user-panel .image {
+            margin-top: 2px;
+        }
+        .main-sidebar .user-panel .info {
+            padding-top: 2px;
+        }
+        .main-sidebar .user-panel .info {
+            max-width: calc(100% - 54px);
+            overflow: hidden;
+        }
+        .main-sidebar .user-panel .info a {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.2;
+            max-height: 2.4em;
+        }
+        table.dataTable > thead .sorting:before,
+        table.dataTable > thead .sorting_asc:before,
+        table.dataTable > thead .sorting_desc:before,
+        table.dataTable > thead .sorting_asc_disabled:before,
+        table.dataTable > thead .sorting_desc_disabled:before {
+            content: "\2191";
+        }
+        table.dataTable > thead .sorting:after,
+        table.dataTable > thead .sorting_asc:after,
+        table.dataTable > thead .sorting_desc:after,
+        table.dataTable > thead .sorting_asc_disabled:after,
+        table.dataTable > thead .sorting_desc_disabled:after {
+            content: "\2193";
+        }
+        .main-footer {
+            background: linear-gradient(90deg, #1e3a8a 0%, #1e3a8a 50%, #b91c1c 50%, #b91c1c 100%);
+            background-size: 100vw 100%;
+            background-position: 0 0;
+            background-repeat: no-repeat;
+            border-top: 1px solid #e2e8f0;
+            color: #ffffff;
+            font-size: 14px;
+            padding: 12px 16px 12px calc(var(--sidebar-width) + 16px);
+            margin-left: 0 !important;
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100vw;
+            z-index: 1030;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        .main-footer small {
+            display: block;
+            letter-spacing: 0.2px;
+            color: #ffffff;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+        .main-footer .footer-inner {
+            text-align: left;
+            width: 100%;
+        }
+        .main-header.navbar {
+            background: linear-gradient(90deg, #1e3a8a 0%, #1e3a8a 50%, #b91c1c 50%, #b91c1c 100%);
+            background-size: 100vw 100%;
+            background-position: calc(-1 * var(--sidebar-width)) 0;
+            background-repeat: no-repeat;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .main-header.navbar .nav-link,
+        .main-header.navbar .nav-link i,
+        .main-header.navbar .navbar-nav .nav-link {
+            color: #ffffff;
+        }
+    </style>
+
 
     <?= $this->fetch('meta') ?>
     <?= $this->fetch('css') ?>
@@ -234,7 +336,11 @@ $cakeDescription = 'SDO ACTIVTITY';
         <!-- /.content -->
     </div>
     <!-- /.content-wrapper -->
-   
+    <footer class="main-footer">
+        <div class="footer-inner">
+            <small>©Copyright 2026 21Joker | All Rights Reserved</small>
+        </div>
+    </footer>
 
     <!-- Control Sidebar -->
     <aside class="control-sidebar control-sidebar-dark">

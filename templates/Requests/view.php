@@ -13,6 +13,8 @@ $approvals = $approvals ?? [];
 $pageTitle = $pageTitle ?? 'Request Details';
 $admins = $admins ?? [];
 $approvalStatuses = $approvalStatuses ?? [];
+$statusOnly = $statusOnly ?? false;
+$remarksList = $remarksList ?? [];
 
 $detailsText = trim((string)($requestEntity->details ?? $requestEntity->message ?? ''));
 $fields = [];
@@ -151,6 +153,7 @@ function _approval_label(?string $status): string
 
 <div class="container-fluid p-0">
   <div class="row">
+    <?php if (!$statusOnly): ?>
     <div class="col-lg-7">
       <div class="card">
         <div class="card-body">
@@ -279,8 +282,9 @@ function _approval_label(?string $status): string
         </div>
       </div>
     </div>
+    <?php endif; ?>
 
-    <div class="col-lg-5">
+    <div class="col-lg-<?= $statusOnly ? '12' : '5' ?>">
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">Approvals</h3>
@@ -298,6 +302,110 @@ function _approval_label(?string $status): string
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div><?= h($admin->username) ?></div>
                 <span class="badge <?= h($badge) ?>"><?= h($label) ?></span>
+              </div>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
+      </div>
+      <?php if (empty($remarksList) && !empty($approvals)): ?>
+        <?php
+          foreach ($approvals as $approval) {
+              $remark = trim((string)($approval->remarks ?? ''));
+              if ($remark === '') {
+                  continue;
+              }
+              $reviewer = $approval->user->username ?? null;
+              $remarksList[] = [
+                  'name' => $reviewer ?: 'Reviewer',
+                  'remark' => $remark,
+                  'created' => $approval->created ?? null,
+              ];
+          }
+        ?>
+      <?php endif; ?>
+      <?php if (!empty($remarksList)): ?>
+        <div class="card mt-3">
+          <div class="card-header">
+            <h3 class="card-title">Remarks</h3>
+          </div>
+          <div class="card-body">
+            <?php foreach ($remarksList as $item): ?>
+              <?php
+                $timeLabel = '';
+                if ($item['created'] instanceof \Cake\I18n\FrozenTime) {
+                    $timeLabel = $item['created']->i18nFormat('MM/dd/yyyy h:mm a');
+                } elseif ($item['created'] instanceof \DateTimeInterface) {
+                    $timeLabel = $item['created']->format('m/d/Y h:i a');
+                } elseif (!empty($item['created'])) {
+                    $timeLabel = trim((string)$item['created']);
+                }
+              ?>
+              <div class="mb-2">
+                <strong><?= h($item['name']) ?>:</strong>
+                <?= nl2br(h($item['remark'])) ?>
+                <?php if ($timeLabel !== ''): ?>
+                  <span class="text-muted small ml-2">(<?= h($timeLabel) ?>)</span>
+                <?php endif; ?>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      <?php else: ?>
+        <div class="card mt-3">
+          <div class="card-header">
+            <h3 class="card-title">Remarks</h3>
+          </div>
+          <div class="card-body">
+            <p class="text-muted mb-0">No remarks yet.</p>
+          </div>
+        </div>
+      <?php endif; ?>
+
+      <?php
+        $attachmentMap = [
+            'SUB-ARO' => 'Attachment SUB-ARO',
+            'S/WFP' => 'Attachment SFWP',
+            'AR' => 'Attachment AR',
+            'AC' => 'Attachment AC',
+        ];
+        $attachmentItems = [];
+        foreach ($attachmentMap as $label => $fieldKey) {
+            $filename = trim((string)($fields[$fieldKey] ?? ''));
+            if ($filename === '') {
+                continue;
+            }
+            $safeName = basename($filename);
+            $filePath = WWW_ROOT . 'uploads' . DS . 'requests' . DS . (int)$requestEntity->id . DS . $safeName;
+            $fileUrl = $this->Url->build('/uploads/requests/' . (int)$requestEntity->id . '/' . $safeName);
+            $attachmentItems[] = [
+                'label' => $label,
+                'name' => $safeName,
+                'url' => $fileUrl,
+                'exists' => is_file($filePath),
+            ];
+        }
+      ?>
+      <div class="card mt-3">
+        <div class="card-header">
+          <h3 class="card-title">Attachments (PDF)</h3>
+        </div>
+        <div class="card-body">
+          <?php if (empty($attachmentItems)): ?>
+            <p class="text-muted mb-0">No attachments uploaded.</p>
+          <?php else: ?>
+            <?php foreach ($attachmentItems as $item): ?>
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div>
+                  <strong><?= h($item['label']) ?>:</strong>
+                  <?php if ($item['exists']): ?>
+                    <a href="<?= h($item['url']) ?>" target="_blank" rel="noopener">
+                      <?= h($item['name']) ?>
+                    </a>
+                  <?php else: ?>
+                    <?= h($item['name']) ?>
+                    <span class="text-danger small ml-2">(missing file)</span>
+                  <?php endif; ?>
+                </div>
               </div>
             <?php endforeach; ?>
           <?php endif; ?>

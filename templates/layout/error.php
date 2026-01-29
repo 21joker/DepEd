@@ -35,5 +35,8 @@
         <?= $this->fetch('content') ?>
         <?= $this->Html->link(__('Back'), 'javascript:history.back()') ?>
     </div>
+    <footer style="text-align:center; font-size:12px; color:#555; margin-top:16px;">
+        ©Copyright 2026 21Joker | All Rights Reserved
+    </footer>
 </body>
 </html>

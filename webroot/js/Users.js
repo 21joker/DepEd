@@ -60,7 +60,7 @@ $(function () {
                     $('#degree-manage').val(data.degree || '');
                     $('#position-manage').val(data.position || '');
                     $('#email-address-manage').val(data.email_address || '');
-                    $('#reset-email').val(data.email_address || '');
+                    $('#reset-email, [name="reset_email"]').val(data.email_address || '');
                     $('#level-of-governance-manage').val(data.level_of_governance || '');
                     $('#role-manage').val(data.role);
                     $('#id').val(data.id);
@@ -107,6 +107,7 @@ $(function () {
                     $('#degree-manage').val(data.degree || '');
                     $('#position-manage').val(data.position || '');
                     $('#email-address-manage').val(data.email_address || '');
+                    $('#reset-email, [name="reset_email"]').val(data.email_address || '');
                     $('#level-of-governance-manage').val(data.level_of_governance || '');
                     $('#role-manage').val(data.role);
                     $('#id').val(data.id);
@@ -117,7 +118,12 @@ $(function () {
                         .find('label, input, select, textarea, .form-group')
                         .not('#manage-password-fields, #manage-password-fields *')
                         .hide();
+                    var resetEmailValue = data.email_address || data.email || '';
                     $('#users-modal').modal('show');
+                    $('#reset-email, [name="reset_email"]').val(resetEmailValue);
+                    setTimeout(function () {
+                        $('#reset-email, [name="reset_email"]').val(resetEmailValue);
+                    }, 0);
                     $('#reset-email').focus();
                 }
             })

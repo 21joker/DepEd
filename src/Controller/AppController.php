@@ -83,6 +83,7 @@ class AppController extends Controller
         if (!empty($auth)) {
             $authDisplayName = $auth['username'] ?? null;
             if (!empty($auth['id'])) {
+                $userRecord = null;
                 try {
                     $this->loadModel('Students');
                     $student = $this->Students->find()
@@ -102,6 +103,42 @@ class AppController extends Controller
                     }
                 } catch (\Throwable $e) {
                     // Ignore if students table isn't available.
+                }
+
+                try {
+                    $this->loadModel('Users');
+                    $userRecord = $this->Users->find()
+                        ->select(['first_name', 'middle_initial', 'last_name', 'suffix', 'degree'])
+                        ->where(['id' => $auth['id']])
+                        ->first();
+                } catch (\Throwable $e) {
+                    // Ignore if users table columns aren't available.
+                }
+
+                if ($userRecord) {
+                    if ($authDisplayName === null || $authDisplayName === ($auth['username'] ?? null)) {
+                        $suffix = trim((string)($userRecord->suffix ?? ''));
+                        $suffix = rtrim($suffix, " ,");
+                        $parts = array_filter([
+                            $userRecord->first_name ?? null,
+                            $userRecord->middle_initial ?? null,
+                            $userRecord->last_name ?? null,
+                            $suffix !== '' ? $suffix : null,
+                        ]);
+                        $fullName = trim(implode(' ', $parts));
+                        if ($fullName !== '') {
+                            $authDisplayName = $fullName;
+                        }
+                    }
+
+                    $degree = trim((string)($userRecord->degree ?? ''));
+                    if ($degree !== '') {
+                        $base = trim((string)($authDisplayName ?? ''));
+                        $base = rtrim($base, " ,");
+                        if ($base === '' || stripos($base, $degree) === false) {
+                            $authDisplayName = $base !== '' ? $base . ', ' . $degree : $degree;
+                        }
+                    }
                 }
             }
         }

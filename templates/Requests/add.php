@@ -58,6 +58,38 @@
     margin-top: 12px;
     text-align: right;
 }
+.proposal-form-container {
+    display: none;
+}
+.proposal-form-container.is-visible {
+    display: block;
+}
+.proposal-list-table th,
+.proposal-list-table td {
+    white-space: nowrap;
+    font-size: 13px;
+}
+.proposal-list-table td {
+    vertical-align: middle;
+}
+.proposal-list-table .actions {
+    white-space: nowrap;
+}
+.proposal-list-table .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+.proposal-list-table .action-btn i {
+    font-size: 12px;
+}
+.proposal-list-table .status-badge {
+    font-size: 12px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
 .budget-table th,
 .budget-table td {
     border: 1px solid #2b2b2b;
@@ -71,18 +103,187 @@
     box-shadow: none;
 }
 .proposal-footer {
-    margin-top: 10px;
+    margin-top: 14px;
     border-top: 1px solid #2b2b2b;
-    padding-top: 6px;
+    padding-top: 10px;
+    display: flex;
+    justify-content: center;
 }
 .proposal-footer img {
     width: 100%;
+    max-width: 520px;
     height: auto;
     display: block;
 }
 </style>
 
-<div class="col-lg-8">
+<div class="col-12">
+    <div class="card">
+        <div class="card-header d-flex align-items-center">
+            <h3 class="card-title mb-0">My Proposal Forms</h3>
+            <button type="button" class="btn btn-primary btn-sm ml-auto" id="toggle-proposal-form">
+                <i class="fas fa-plus"></i>
+                Create Form
+            </button>
+        </div>
+        <div class="card-body table-responsive">
+            <?php if (!empty($userRequests)): ?>
+                <table class="table table-bordered table-striped proposal-list-table" id="proposal-forms-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Logs</th>
+                            <th>AC</th>
+                            <th>Title of Activity</th>
+                            <th>Activity Schedule</th>
+                            <th>Budget Requirement</th>
+                            <th>Source of Fund</th>
+                            <th>Grand Total</th>
+                            <th>SUB-ARO</th>
+                            <th>S/WFP</th>
+                            <th>AR</th>
+                            <th>AC</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php $rowIndex = 1; ?>
+                        <?php foreach ($userRequests as $request): ?>
+                            <?php
+                                $summary = $requestSummaries[$request->id] ?? [];
+                                $ac = trim((string)($summary['pmis_activity_code'] ?? ''));
+                                $title = trim((string)($summary['title_of_activity'] ?? ''));
+                                $schedule = trim((string)($summary['activity_schedule'] ?? ''));
+                                $budget = trim((string)($summary['budget_requirement'] ?? ''));
+                                $source = trim((string)($summary['source_of_fund'] ?? ''));
+                                $grand = trim((string)($summary['grand_total'] ?? ''));
+                                $subAro = trim((string)($summary['attachment_sub_aro'] ?? ''));
+                                $sfwp = trim((string)($summary['attachment_sfwp'] ?? ''));
+                                $ar = trim((string)($summary['attachment_ar'] ?? ''));
+                                $acAttach = trim((string)($summary['attachment_ac'] ?? ''));
+                                $isLocked = in_array($request->status ?? null, ['approved', 'Approved'], true)
+                                    || ((int)($request->approvals_count ?? 0) > 0);
+                                $logTime = $request->updated_at ?? $request->created_at ?? null;
+                                $logLabel = 'N/A';
+                                if ($logTime instanceof \Cake\I18n\FrozenTime) {
+                                    $logLabel = $logTime->i18nFormat('MM/dd/yyyy h:mm a');
+                                } elseif ($logTime instanceof \DateTimeInterface) {
+                                    $logLabel = $logTime->format('m/d/Y h:i a');
+                                } elseif (!empty($logTime)) {
+                                    $logLabel = trim((string)$logTime);
+                                }
+                                $isApproved = (int)($request->approvals_needed ?? 0) > 0
+                                    && (int)($request->approvals_count ?? 0) >= (int)($request->approvals_needed ?? 0);
+                                if ($isApproved || in_array($request->status ?? null, ['approved', 'Approved'], true)) {
+                                    $statusLabel = 'Fully Approved';
+                                    $statusClass = 'success';
+                                } elseif (($request->status ?? '') === 'declined') {
+                                    $statusLabel = 'Review';
+                                    $statusClass = 'warning';
+                                } else {
+                                    $statusLabel = 'Pending';
+                                    $statusClass = 'secondary';
+                                }
+                                $requestId = (int)$request->id;
+                                $buildFileLink = function (string $filename) use ($requestId) {
+                                    $safeName = basename($filename);
+                                    if ($safeName === '') {
+                                        return null;
+                                    }
+                                    return [
+                                        'name' => $safeName,
+                                        'url' => $this->Url->build('/uploads/requests/' . $requestId . '/' . $safeName),
+                                    ];
+                                };
+                            ?>
+                            <tr>
+                                <td><?= $rowIndex ?></td>
+                                <td><?= h($logLabel) ?></td>
+                                <td><?= $ac !== '' ? h($ac) : 'N/A' ?></td>
+                                <td><?= $title !== '' ? h($title) : 'N/A' ?></td>
+                                <td><?= $schedule !== '' ? h($schedule) : 'N/A' ?></td>
+                                <td><?= $budget !== '' ? h($budget) : 'N/A' ?></td>
+                                <td><?= $source !== '' ? h($source) : 'N/A' ?></td>
+                                <td><?= $grand !== '' ? h($grand) : 'N/A' ?></td>
+                                <td>
+                                    <?php if ($subAro !== '' && ($link = $buildFileLink($subAro))): ?>
+                                        <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener">
+                                            <?= h($link['name']) ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <?= $subAro !== '' ? h($subAro) : 'N/A' ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($sfwp !== '' && ($link = $buildFileLink($sfwp))): ?>
+                                        <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener">
+                                            <?= h($link['name']) ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <?= $sfwp !== '' ? h($sfwp) : 'N/A' ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($ar !== '' && ($link = $buildFileLink($ar))): ?>
+                                        <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener">
+                                            <?= h($link['name']) ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <?= $ar !== '' ? h($ar) : 'N/A' ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($acAttach !== '' && ($link = $buildFileLink($acAttach))): ?>
+                                        <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener">
+                                            <?= h($link['name']) ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <?= $acAttach !== '' ? h($acAttach) : 'N/A' ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <span class="badge badge-<?= h($statusClass) ?> status-badge">
+                                        <?= h($statusLabel) ?>
+                                    </span>
+                                </td>
+                                <td class="actions">
+                                    <a
+                                        class="btn btn-sm btn-primary action-btn modal-link"
+                                        href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'view', $request->id, '?' => ['modal' => 1]]) ?>"
+                                        data-title="View Request"
+                                    >
+                                        <i class="fas fa-eye"></i>
+                                        View
+                                    </a>
+                                    <?php if ($isLocked): ?>
+                                        <span class="btn btn-sm btn-secondary action-btn disabled">
+                                            <i class="fas fa-lock"></i>
+                                            Edit
+                                        </span>
+                                    <?php else: ?>
+                                        <a
+                                            class="btn btn-sm btn-outline-secondary action-btn"
+                                            href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'edit', $request->id]) ?>"
+                                        >
+                                            <i class="fas fa-edit"></i>
+                                            Edit
+                                        </a>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php $rowIndex++; ?>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <p class="text-muted mb-0">No proposal forms submitted yet.</p>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<div class="col-lg-8 proposal-form-container <?= !empty($showForm) ? 'is-visible' : '' ?>" id="proposal-form-container">
     <div class="card">
         <div class="card-body">
             <?= $this->Flash->render() ?>
@@ -107,25 +308,40 @@
             <table class="table proposal-table">
                 <thead>
                     <tr>
-                        <th class="section" colspan="2">Part I. Activity Details</th>
+                        <th class="section" colspan="3">Part I. Activity Details</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td class="label">PMIS Activity Code (AC):</td>
-                        <td><?= $this->Form->text('pmis_activity_code', ['class' => 'form-control']) ?></td>
+                        <td><?= $this->Form->text('pmis_activity_code', [
+                            'class' => 'form-control',
+                            'value' => !empty($requestEntity->pmis_activity_code) ? $requestEntity->pmis_activity_code : 'AC-',
+                        ]) ?></td>
+                        <td>
+                            <?php
+                                $officeOptions = [
+                                    'CID' => 'CID',
+                                    'OSDS' => 'OSDS',
+                                    'SGOD' => 'SGOD',
+                                ];
+                            ?>
+                            <?= $this->Form->select('pmis_activity_office', $officeOptions, [
+                                'class' => 'form-control',
+                            ]) ?>
+                        </td>
                     </tr>
                     <tr>
                         <td class="label">Title of Activity:</td>
-                        <td><?= $this->Form->text('title_of_activity', ['class' => 'form-control']) ?></td>
+                        <td colspan="2"><?= $this->Form->text('title_of_activity', ['class' => 'form-control']) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Proponent/s:</td>
-                        <td><?= $this->Form->text('proponents', ['class' => 'form-control']) ?></td>
+                        <td colspan="2"><?= $this->Form->text('proponents', ['class' => 'form-control']) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Activity Schedule:</td>
-                        <td>
+                        <td colspan="2">
                             <div class="form-row align-items-center">
                                 <div class="col-auto pr-2">
                                     <label class="mb-0 font-weight-bold">From:</label>
@@ -152,27 +368,27 @@
                     </tr>
                     <tr>
                         <td class="label">Venue/Modality:</td>
-                        <td><?= $this->Form->text('venue_modality', ['class' => 'form-control']) ?></td>
+                        <td colspan="2"><?= $this->Form->text('venue_modality', ['class' => 'form-control']) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Target Participants:</td>
-                        <td><?= $this->Form->text('target_participants', ['class' => 'form-control']) ?></td>
+                        <td colspan="2"><?= $this->Form->text('target_participants', ['class' => 'form-control']) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Activity Description (Justification):</td>
-                        <td><?= $this->Form->textarea('activity_description', ['class' => 'form-control', 'rows' => 3]) ?></td>
+                        <td colspan="2"><?= $this->Form->textarea('activity_description', ['class' => 'form-control', 'rows' => 3]) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Activity Objectives:</td>
-                        <td><?= $this->Form->textarea('activity_objectives', ['class' => 'form-control', 'rows' => 3]) ?></td>
+                        <td colspan="2"><?= $this->Form->textarea('activity_objectives', ['class' => 'form-control', 'rows' => 3]) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Expected Output:</td>
-                        <td><?= $this->Form->textarea('expected_output', ['class' => 'form-control', 'rows' => 3]) ?></td>
+                        <td colspan="2"><?= $this->Form->textarea('expected_output', ['class' => 'form-control', 'rows' => 3]) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Monitoring & Evaluation:</td>
-                        <td><?= $this->Form->text('monitoring_evaluation', ['class' => 'form-control']) ?></td>
+                        <td colspan="2"><?= $this->Form->text('monitoring_evaluation', ['class' => 'form-control']) ?></td>
                     </tr>
                 </tbody>
             </table>
@@ -186,7 +402,7 @@
                 <tbody>
                     <tr>
                         <td class="label">Budget Requirement:</td>
-                        <td><?= $this->Form->text('budget_requirement', ['class' => 'form-control']) ?></td>
+                        <td><?= $this->Form->text('budget_requirement', ['class' => 'form-control peso-format']) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Source of Fund:</td>
@@ -232,8 +448,8 @@
                                     <tr>
                                         <td><?= $this->Form->text('expenditure_nature.0', ['class' => 'form-control']) ?></td>
                                         <td><?= $this->Form->text('expenditure_no.0', ['class' => 'form-control']) ?></td>
-                                        <td><?= $this->Form->text('expenditure_amount.0', ['class' => 'form-control']) ?></td>
-                                        <td><?= $this->Form->text('expenditure_total.0', ['class' => 'form-control']) ?></td>
+                                        <td><?= $this->Form->text('expenditure_amount.0', ['class' => 'form-control peso-format']) ?></td>
+                                        <td><?= $this->Form->text('expenditure_total.0', ['class' => 'form-control peso-format']) ?></td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -246,7 +462,7 @@
                     </tr>
                     <tr>
                         <td class="label">Grand Total</td>
-                        <td><?= $this->Form->text('grand_total', ['class' => 'form-control']) ?></td>
+                        <td><?= $this->Form->text('grand_total', ['class' => 'form-control peso-format']) ?></td>
                     </tr>
                 </tbody>
             </table>
@@ -302,7 +518,13 @@
                 <div class="text-muted mr-3">
                     <strong>Requested By:</strong> <?= h($requestEntity->name ?? '') ?>
                 </div>
-                <?= $this->Form->button('Submit Request', ['class' => 'btn btn-primary']) ?>
+                <?php if (!empty($isEdit) && !empty($requestEntity->updated_at)): ?>
+                    <div class="text-muted mr-3 small">
+                        <strong>Last Updated:</strong>
+                        <?= h($requestEntity->updated_at->i18nFormat('MM/dd/yyyy h:mm a')) ?>
+                    </div>
+                <?php endif; ?>
+                <?= $this->Form->button(!empty($isEdit) ? 'Update Request' : 'Submit Request', ['class' => 'btn btn-primary']) ?>
             </div>
             <?= $this->Form->end() ?>
 
@@ -315,81 +537,28 @@
     </div>
 </div>
 
-<div class="col-lg-4">
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Request Status</h3>
-        </div>
-        <div class="card-body">
-            <?php if (!empty($lastRequest) && !empty($admins)): ?>
-                <?php $approvalRemarks = $approvalRemarks ?? []; ?>
-                <div class="mb-3">
-                    <div class="text-uppercase text-muted small mb-2">Form Details</div>
-                    <div><strong>Title:</strong> <?= h($lastRequest->title) ?></div>
-                    <div><strong>Name:</strong> <?= h($lastRequest->name ?: 'N/A') ?></div>
-                    <div><strong>Submitted:</strong>
-                        <?php if ($lastRequest->created_at): ?>
-                            <?= h($lastRequest->created_at->i18nFormat('MM/dd/yyyy h:mm a')) ?>
-                        <?php else: ?>
-                            N/A
-                        <?php endif; ?>
-                    </div>
-                    <?php if ((int)($lastRequest->approvals_count ?? 0) === 0): ?>
-                        <div class="mt-2">
-                            <a class="btn btn-outline-secondary btn-sm" href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'edit', $lastRequest->id]) ?>">
-                                Edit Request
-                            </a>
-                        </div>
-                    <?php endif; ?>
-                </div>
-                <div class="text-uppercase text-muted small mb-2">Status</div>
-                <?php foreach ($admins as $admin): ?>
-                    <?php
-                        $status = $approvalStatuses[$admin->id] ?? null;
-                        if ($status === 'approved') {
-                            $badgeClass = 'success';
-                        } elseif ($status === 'declined') {
-                            $badgeClass = 'danger';
-                        } else {
-                            $badgeClass = 'warning';
-                        }
-                    ?>
-                    <span class="badge badge-<?= $badgeClass ?> p-2 mr-1 mb-1">
-                        <?= h($admin->username) ?>
-                    </span>
-                <?php endforeach; ?>
-
-                <?php
-                    $hasRemarks = false;
-                    foreach ($admins as $admin) {
-                        if (!empty($approvalRemarks[$admin->id])) {
-                            $hasRemarks = true;
-                            break;
-                        }
-                    }
-                ?>
-                <?php if ($hasRemarks): ?>
-                    <div class="mt-3">
-                        <div class="text-uppercase text-muted small mb-2">Remarks</div>
-                        <?php foreach ($admins as $admin): ?>
-                            <?php $remark = $approvalRemarks[$admin->id] ?? ''; ?>
-                            <?php if ($remark === '') { continue; } ?>
-                            <div class="mb-2">
-                                <strong><?= h($admin->username) ?>:</strong>
-                                <?= nl2br(h($remark)) ?>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            <?php else: ?>
-                <p class="text-muted mb-0">Submit a request to see approval status.</p>
-            <?php endif; ?>
-        </div>
-    </div>
-</div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    var toggleButton = document.getElementById('toggle-proposal-form');
+    var formContainer = document.getElementById('proposal-form-container');
+    if (toggleButton && formContainer) {
+        var updateLabel = function () {
+            if (formContainer.classList.contains('is-visible')) {
+                toggleButton.innerHTML = '<i class="fas fa-minus"></i> Hide Form';
+            } else {
+                toggleButton.innerHTML = '<i class="fas fa-plus"></i> Create Form';
+            }
+        };
+        updateLabel();
+        toggleButton.addEventListener('click', function () {
+            formContainer.classList.toggle('is-visible');
+            updateLabel();
+            if (formContainer.classList.contains('is-visible')) {
+                formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    }
+
     var addBtn = document.getElementById('add-matrix-row');
     var table = document.getElementById('expenditure-matrix');
     if (!addBtn || !table) {
@@ -416,6 +585,71 @@ document.addEventListener('DOMContentLoaded', function () {
             input.value = '';
         });
         tbody.appendChild(newRow);
+    });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var pesoInputs = document.querySelectorAll('.peso-format');
+    if (!pesoInputs.length) {
+        return;
+    }
+
+    function normalizeNumber(value) {
+        return (value || '').toString().replace(/[^\d.-]/g, '');
+    }
+
+    function formatPeso(value) {
+        var normalized = normalizeNumber(value);
+        if (normalized === '' || normalized === '-' || normalized === '.') {
+            return value;
+        }
+        var number = Number(normalized);
+        if (Number.isNaN(number)) {
+            return value;
+        }
+        if (typeof Intl !== 'undefined' && Intl.NumberFormat) {
+            return new Intl.NumberFormat('en-PH', {
+                style: 'currency',
+                currency: 'PHP',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(number);
+        }
+        return 'PHP ' + number.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    function handleFocus(event) {
+        var input = event.target;
+        input.value = normalizeNumber(input.value);
+    }
+
+    function handleBlur(event) {
+        var input = event.target;
+        if (input.value.trim() === '') {
+            return;
+        }
+        input.value = formatPeso(input.value);
+    }
+
+    pesoInputs.forEach(function (input) {
+        if (input.value.trim() !== '') {
+            input.value = formatPeso(input.value);
+        }
+        input.addEventListener('focus', handleFocus);
+        input.addEventListener('blur', handleBlur);
+    });
+
+    document.addEventListener('focusin', function (event) {
+        if (event.target && event.target.classList && event.target.classList.contains('peso-format')) {
+            handleFocus(event);
+        }
+    });
+    document.addEventListener('focusout', function (event) {
+        if (event.target && event.target.classList && event.target.classList.contains('peso-format')) {
+            handleBlur(event);
+        }
     });
 });
 </script>
