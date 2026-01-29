@@ -13,13 +13,17 @@ $proponentName = $proponentName ?? '';
 $proponentDegree = $proponentDegree ?? '';
 $proponentPosition = $proponentPosition ?? '';
 
-$detailsText = trim((string)($requestEntity->details ?? $requestEntity->message ?? ''));
+$detailsSource = $requestEntity->details;
+if ($detailsSource === null || trim((string)$detailsSource) === '') {
+    $detailsSource = $requestEntity->message ?? '';
+}
+$detailsText = trim((string)$detailsSource);
 $fields = [];
 $matrix = [];
 $inMatrix = false;
 
 if ($detailsText !== '') {
-    $lines = preg_split("/\\r?\\n/", $detailsText);
+    $lines = preg_split("/\\r\\n|\\n|\\r/", $detailsText);
     foreach ($lines as $line) {
         $line = trim((string)$line);
         if ($line === '') {
@@ -379,12 +383,12 @@ body {
                 <td>
                     <div>Reviewed as to AIP/WFP/PMIS:</div>
                     <div class="signature-block" style="margin-top: 16px;">
-                        <div class="name">SHIRLYN R. MACASPAC PhD</div>
-                        <div>SMM&E</div>
-                    </div>
-                    <div class="signature-block" style="margin-top: 18px;">
                         <div class="name">MARFIL A. DULAY LPT</div>
                         <div>Planning Officer III</div>
+                    </div>
+                    <div class="signature-block" style="margin-top: 18px;">
+                        <div class="name">SHIRLYN R. MACASPAC PhD</div>
+                        <div>SMM&E</div>
                     </div>
                 </td>
             </tr>
@@ -393,7 +397,7 @@ body {
                     <div>Attested:</div>
                     <div class="signature-block" style="margin-top: 24px;">
                         <div class="name">LEONIDA F. CULANG MPA</div>
-                        <div>Administrative Officer V. Admin</div>
+                        <div>Administrative Officer V, Admin</div>
                     </div>
                 </td>
                 <td>

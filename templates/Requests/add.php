@@ -467,13 +467,16 @@
                                 <tbody>
                                     <tr>
                                         <td><?= $this->Form->text('expenditure_nature.0', ['class' => 'form-control']) ?></td>
-                                        <td><?= $this->Form->text('expenditure_no.0', ['class' => 'form-control']) ?></td>
-                                        <td><?= $this->Form->text('expenditure_amount.0', ['class' => 'form-control peso-format']) ?></td>
-                                        <td><?= $this->Form->text('expenditure_total.0', ['class' => 'form-control peso-format']) ?></td>
+                                        <td><?= $this->Form->text('expenditure_no.0', ['class' => 'form-control matrix-no']) ?></td>
+                                        <td><?= $this->Form->text('expenditure_amount.0', ['class' => 'form-control peso-format matrix-amount']) ?></td>
+                                        <td><?= $this->Form->text('expenditure_total.0', ['class' => 'form-control peso-format matrix-total']) ?></td>
                                     </tr>
                                 </tbody>
                             </table>
                             <div class="text-right mt-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="remove-matrix-row">
+                                    <i class="fas fa-minus"></i>
+                                </button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="add-matrix-row">
                                     <i class="fas fa-plus"></i>
                                 </button>
@@ -580,6 +583,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     var addBtn = document.getElementById('add-matrix-row');
+    var removeBtn = document.getElementById('remove-matrix-row');
     var table = document.getElementById('expenditure-matrix');
     if (!addBtn || !table) {
         return;
@@ -600,12 +604,35 @@ document.addEventListener('DOMContentLoaded', function () {
         newRow.querySelectorAll('input').forEach(function (input) {
             var name = input.getAttribute('name') || '';
             if (name) {
-                input.setAttribute('name', name.replace(/\.\d+$/, '.' + index));
+                if (/\[\d+\]$/.test(name)) {
+                    input.setAttribute('name', name.replace(/\[\d+\]$/, '[' + index + ']'));
+                } else {
+                    input.setAttribute('name', name.replace(/\.\d+$/, '.' + index));
+                }
             }
             input.value = '';
         });
         tbody.appendChild(newRow);
     });
+
+    if (removeBtn) {
+        removeBtn.addEventListener('click', function () {
+            var tbody = table.querySelector('tbody');
+            if (!tbody) {
+                return;
+            }
+            var rows = tbody.querySelectorAll('tr');
+            if (rows.length <= 1) {
+                rows.forEach(function (row) {
+                    row.querySelectorAll('input').forEach(function (input) {
+                        input.value = '';
+                    });
+                });
+                return;
+            }
+            tbody.removeChild(rows[rows.length - 1]);
+        });
+    }
 
     var searchInput = document.getElementById('proposal-search');
     var proposalTable = document.getElementById('proposal-forms-table');
@@ -652,6 +679,30 @@ document.addEventListener('DOMContentLoaded', function () {
         return 'PHP ' + number.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
 
+    function updateMatrixRowTotal(row) {
+        if (!row) {
+            return;
+        }
+        var countInput = row.querySelector('.matrix-no');
+        var amountInput = row.querySelector('.matrix-amount');
+        var totalInput = row.querySelector('.matrix-total');
+        if (!countInput || !amountInput || !totalInput) {
+            return;
+        }
+        var countValue = Number(normalizeNumber(countInput.value || ''));
+        var amountValue = Number(normalizeNumber(amountInput.value || ''));
+        if (Number.isNaN(countValue) || Number.isNaN(amountValue)) {
+            totalInput.value = '';
+            return;
+        }
+        var total = countValue * amountValue;
+        if (!Number.isFinite(total)) {
+            totalInput.value = '';
+            return;
+        }
+        totalInput.value = formatPeso(total.toFixed(2));
+    }
+
     function handleFocus(event) {
         var input = event.target;
         input.value = normalizeNumber(input.value);
@@ -682,6 +733,19 @@ document.addEventListener('DOMContentLoaded', function () {
         if (event.target && event.target.classList && event.target.classList.contains('peso-format')) {
             handleBlur(event);
         }
+    });
+
+    document.addEventListener('input', function (event) {
+        if (!event.target) {
+            return;
+        }
+        if (event.target.classList.contains('matrix-no') || event.target.classList.contains('matrix-amount')) {
+            updateMatrixRowTotal(event.target.closest('tr'));
+        }
+    });
+
+    document.querySelectorAll('#expenditure-matrix tbody tr').forEach(function (row) {
+        updateMatrixRowTotal(row);
     });
 });
 </script>

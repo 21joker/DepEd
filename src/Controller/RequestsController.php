@@ -73,6 +73,7 @@ class RequestsController extends AppController
                 $title = 'Activity Proposal';
             }
             $requestEntity->title = $title;
+            $requestEntity->subject = $title;
 
             $detailsLines = [];
             $detailsMap = [
@@ -124,6 +125,13 @@ class RequestsController extends AppController
                 $rowCount = trim((string)($count[$i] ?? ''));
                 $rowAmount = trim((string)($amount[$i] ?? ''));
                 $rowTotal = trim((string)($total[$i] ?? ''));
+                if ($rowTotal === '' && ($rowCount !== '' || $rowAmount !== '')) {
+                    $countValue = (float)preg_replace('/[^0-9.\-]/', '', $rowCount);
+                    $amountValue = (float)preg_replace('/[^0-9.\-]/', '', $rowAmount);
+                    if ($countValue || $amountValue) {
+                        $rowTotal = (string)($countValue * $amountValue);
+                    }
+                }
                 if ($rowNature === '' && $rowCount === '' && $rowAmount === '' && $rowTotal === '') {
                     continue;
                 }
@@ -143,6 +151,7 @@ class RequestsController extends AppController
             $detailsText = trim(implode("\n", $detailsLines));
             if ($detailsText !== '') {
                 $requestEntity->details = $detailsText;
+                $requestEntity->message = $detailsText;
             }
             $authId = (int)$this->Auth->user('id');
             if ($authId) {
@@ -215,7 +224,11 @@ class RequestsController extends AppController
                 ->orderDesc('id')
                 ->all();
             foreach ($userRequests as $request) {
-                $fields = $this->extractFieldsFromDetails((string)($request->details ?? ''));
+                $detailsSource = $request->details;
+                if ($detailsSource === null || trim((string)$detailsSource) === '') {
+                    $detailsSource = $request->message ?? '';
+                }
+                $fields = $this->extractFieldsFromDetails((string)$detailsSource);
                 $requestSummaries[$request->id] = [
                     'pmis_activity_code' => $fields['PMIS Activity Code'] ?? '',
                     'title_of_activity' => $fields['Title of Activity'] ?? ($request->title ?? ''),
@@ -303,7 +316,11 @@ class RequestsController extends AppController
             $formData = $this->request->getData();
             $requestEntity = $this->Requests->patchEntity($requestEntity, $formData);
             $attachmentUploads = $this->prepareAttachmentUploads($formData);
-            $existingFields = $this->extractFieldsFromDetails((string)($requestEntity->details ?? ''));
+            $detailsSource = $requestEntity->details;
+            if ($detailsSource === null || trim((string)$detailsSource) === '') {
+                $detailsSource = $requestEntity->message ?? '';
+            }
+            $existingFields = $this->extractFieldsFromDetails((string)$detailsSource);
 
             $rawName = trim((string)$this->request->getData('name'));
             $rawEmail = trim((string)$this->request->getData('email'));
@@ -318,6 +335,7 @@ class RequestsController extends AppController
                 $title = 'Activity Proposal';
             }
             $requestEntity->title = $title;
+            $requestEntity->subject = $title;
 
             $detailsLines = [];
             $detailsMap = [
@@ -377,6 +395,13 @@ class RequestsController extends AppController
                 $rowCount = trim((string)($count[$i] ?? ''));
                 $rowAmount = trim((string)($amount[$i] ?? ''));
                 $rowTotal = trim((string)($total[$i] ?? ''));
+                if ($rowTotal === '' && ($rowCount !== '' || $rowAmount !== '')) {
+                    $countValue = (float)preg_replace('/[^0-9.\-]/', '', $rowCount);
+                    $amountValue = (float)preg_replace('/[^0-9.\-]/', '', $rowAmount);
+                    if ($countValue || $amountValue) {
+                        $rowTotal = (string)($countValue * $amountValue);
+                    }
+                }
                 if ($rowNature === '' && $rowCount === '' && $rowAmount === '' && $rowTotal === '') {
                     continue;
                 }
@@ -396,6 +421,7 @@ class RequestsController extends AppController
             $detailsText = trim(implode("\n", $detailsLines));
             if ($detailsText !== '') {
                 $requestEntity->details = $detailsText;
+                $requestEntity->message = $detailsText;
             }
 
             if ($this->Requests->save($requestEntity)) {
@@ -407,12 +433,16 @@ class RequestsController extends AppController
             $this->Flash->error('Failed to update request.');
         }
 
-        $detailsText = trim((string)($requestEntity->details ?? $requestEntity->message ?? ''));
+        $detailsSource = $requestEntity->details;
+        if ($detailsSource === null || trim((string)$detailsSource) === '') {
+            $detailsSource = $requestEntity->message ?? '';
+        }
+        $detailsText = trim((string)$detailsSource);
         $fields = [];
         $matrix = [];
         $inMatrix = false;
         if ($detailsText !== '') {
-            $lines = preg_split("/\\r?\\n/", $detailsText);
+            $lines = preg_split("/\\r\\n|\\n|\\r/", $detailsText);
             foreach ($lines as $line) {
                 $line = trim((string)$line);
                 if ($line === '') {
@@ -493,7 +523,11 @@ class RequestsController extends AppController
                 ->orderDesc('id')
                 ->all();
             foreach ($userRequests as $request) {
-                $fields = $this->extractFieldsFromDetails((string)($request->details ?? ''));
+                $detailsSource = $request->details;
+                if ($detailsSource === null || trim((string)$detailsSource) === '') {
+                    $detailsSource = $request->message ?? '';
+                }
+                $fields = $this->extractFieldsFromDetails((string)$detailsSource);
                 $requestSummaries[$request->id] = [
                     'pmis_activity_code' => $fields['PMIS Activity Code'] ?? '',
                     'title_of_activity' => $fields['Title of Activity'] ?? ($request->title ?? ''),
@@ -935,9 +969,13 @@ class RequestsController extends AppController
         $proponentName = '';
         $proponentDegree = '';
         $proponentPosition = '';
-        $detailsText = trim((string)($requestEntity->details ?? $requestEntity->message ?? ''));
+        $detailsSource = $requestEntity->details;
+        if ($detailsSource === null || trim((string)$detailsSource) === '') {
+            $detailsSource = $requestEntity->message ?? '';
+        }
+        $detailsText = trim((string)$detailsSource);
         if ($detailsText !== '') {
-            $lines = preg_split("/\\r?\\n/", $detailsText);
+            $lines = preg_split("/\\r\\n|\\n|\\r/", $detailsText);
             foreach ($lines as $line) {
                 $line = trim((string)$line);
                 if ($line === '') {
@@ -1434,7 +1472,7 @@ class RequestsController extends AppController
             return $fields;
         }
 
-        $lines = preg_split("/\\r?\\n/", $detailsText);
+        $lines = preg_split("/\\r\\n|\\n|\\r/", $detailsText);
         $inMatrix = false;
         foreach ($lines as $line) {
             $line = trim((string)$line);

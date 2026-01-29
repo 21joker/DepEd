@@ -16,13 +16,17 @@ $approvalStatuses = $approvalStatuses ?? [];
 $statusOnly = $statusOnly ?? false;
 $remarksList = $remarksList ?? [];
 
-$detailsText = trim((string)($requestEntity->details ?? $requestEntity->message ?? ''));
+$detailsSource = $requestEntity->details;
+if ($detailsSource === null || trim((string)$detailsSource) === '') {
+    $detailsSource = $requestEntity->message ?? '';
+}
+$detailsText = trim((string)$detailsSource);
 $fields = [];
 $matrix = [];
 $inMatrix = false;
 
 if ($detailsText !== '') {
-    $lines = preg_split("/\\r?\\n/", $detailsText);
+    $lines = preg_split("/\\r\\n|\\n|\\r/", $detailsText);
     foreach ($lines as $line) {
         $line = trim((string)$line);
         if ($line === '') {

@@ -12,7 +12,9 @@ use Cake\ORM\Entity;
  * @property string|null $name
  * @property string|null $email
  * @property string $title
+ * @property string|null $subject
  * @property string $details
+ * @property string|null $message
  * @property string $status
  * @property int $approvals_needed
  * @property int $approvals_count
@@ -25,7 +27,9 @@ class Request extends Entity
         'name' => true,
         'email' => true,
         'title' => true,
+        'subject' => true,
         'details' => true,
+        'message' => true,
         'status' => true,
         'approvals_needed' => true,
         'approvals_count' => true,
