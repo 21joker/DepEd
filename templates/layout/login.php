@@ -192,7 +192,8 @@ body.login-bg::after {
 </style>
 
     <?= $this->fetch('content') ?>
-    <div class="login-footer">©Copyright 2026 21Joker | All Rights Reserved</div>
+    <div class="login-footer">©Copyright 2026 21Joker | All Rights Reserved 
+       </div>
 
     <?= $this->Html->script([
             '/plugins/jquery/jquery.min.js',

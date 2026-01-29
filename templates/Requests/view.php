@@ -67,7 +67,7 @@ function _approval_badge_class(?string $status): string
 {
     return match ($status) {
         'approved' => 'badge-success',
-        'declined' => 'badge-warning',
+        'declined' => 'badge-danger',
         default => 'badge-secondary',
     };
 }

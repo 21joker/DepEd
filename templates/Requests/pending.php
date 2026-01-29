@@ -25,7 +25,7 @@ $csrfToken = $this->getRequest()->getAttribute('csrfToken');
 function _approval_badge($status) {
   return match ($status) {
     'approved' => 'badge-success',
-    'declined' => 'badge-warning',
+    'declined' => 'badge-danger',
     default => 'badge-secondary',
   };
 }
