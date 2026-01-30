@@ -131,7 +131,7 @@
                 >
                 <button type="button" class="btn btn-primary btn-sm ml-auto" id="toggle-proposal-form">
                     <i class="fas fa-plus"></i>
-                    Create Form
+                    Create Proposal
                 </button>
             </div>
         </div>
@@ -314,6 +314,30 @@
         <div class="card-body">
             <?= $this->Flash->render() ?>
 
+            <?php
+                $venueOptions = [
+                    '' => 'Select...',
+                    'ONLINE' => 'ONLINE',
+                    'FaceToFace' => 'FaceToFace',
+                    'Hybrid' => 'Hybrid',
+                ];
+                $venueValue = trim((string)($requestEntity->venue_modality ?? ''));
+                $venueChoice = '';
+                $venueDetails = '';
+                if ($venueValue !== '') {
+                    foreach (['ONLINE', 'FaceToFace', 'Hybrid'] as $option) {
+                        if (stripos($venueValue, $option) === 0) {
+                            $venueChoice = $option;
+                            $venueDetails = trim((string)preg_replace('/^' . preg_quote($option, '/') . '\\s*[-:]?\\s*/i', '', $venueValue));
+                            break;
+                        }
+                    }
+                    if ($venueChoice === '') {
+                        $venueDetails = $venueValue;
+                    }
+                }
+            ?>
+
             <div class="proposal-title mb-3">
                 <div class="seal">
                     <?= $this->Html->image('deped.png', [
@@ -396,7 +420,25 @@
                     </tr>
                     <tr>
                         <td class="label">Venue/Modality:</td>
-                        <td colspan="2"><?= $this->Form->text('venue_modality', ['class' => 'form-control']) ?></td>
+                        <td colspan="2">
+                            <div class="form-row align-items-center">
+                                <div class="col">
+                                    <?= $this->Form->text('venue_modality_details', [
+                                        'class' => 'form-control',
+                                        'label' => false,
+                                        'value' => $venueDetails,
+                                        'placeholder' => 'venue',
+                                    ]) ?>
+                                </div>
+                                <div class="col-4">
+                                    <?= $this->Form->select('venue_modality_choice', $venueOptions, [
+                                        'class' => 'form-control',
+                                        'label' => false,
+                                        'value' => $venueChoice,
+                                    ]) ?>
+                                </div>
+                            </div>
+                        </td>
                     </tr>
                     <tr>
                         <td class="label">Target Participants:</td>
@@ -416,7 +458,12 @@
                     </tr>
                     <tr>
                         <td class="label">Monitoring & Evaluation:</td>
-                        <td colspan="2"><?= $this->Form->text('monitoring_evaluation', ['class' => 'form-control']) ?></td>
+                        <td colspan="2"><?= $this->Form->text('monitoring_evaluation', [
+                            'class' => 'form-control',
+                            'value' => !empty($requestEntity->monitoring_evaluation)
+                                ? $requestEntity->monitoring_evaluation
+                                : 'SHIRLYN R. MACASPAC PhD / ARCADIO L. MODUMO',
+                        ]) ?></td>
                     </tr>
                 </tbody>
             </table>
@@ -595,7 +642,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (formContainer.classList.contains('is-visible')) {
                 toggleButton.innerHTML = '<i class="fas fa-minus"></i> Hide Form';
             } else {
-                toggleButton.innerHTML = '<i class="fas fa-plus"></i> Create Form';
+                toggleButton.innerHTML = '<i class="fas fa-plus"></i> Create Proposal';
             }
         };
         updateLabel();

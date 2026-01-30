@@ -7,6 +7,28 @@
 #users-table td:last-child {
     display: none !important;
 }
+#add.btn.btn-tool {
+    background: #1f5fbf;
+    color: #fff;
+    border-radius: 999px;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #1a4f9d;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+#add.btn.btn-tool:hover {
+    background: #1a54aa;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+    transform: translateY(-1px);
+}
+#add.btn.btn-tool:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(31, 95, 191, 0.3);
+}
 <?php endif; ?>
 </style>
 

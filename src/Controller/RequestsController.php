@@ -28,6 +28,15 @@ class RequestsController extends AppController
 
         if ($this->request->is('post')) {
             $formData = $this->request->getData();
+            $venueChoice = trim((string)($formData['venue_modality_choice'] ?? ''));
+            $venueDetails = trim((string)($formData['venue_modality_details'] ?? ''));
+            $venueCombined = $venueChoice;
+            if ($venueDetails !== '') {
+                $venueCombined .= ($venueCombined !== '' ? ' - ' : '') . $venueDetails;
+            }
+            if ($venueCombined !== '') {
+                $formData['venue_modality'] = $venueCombined;
+            }
             $requestEntity = $this->Requests->patchEntity($requestEntity, $formData);
             $attachmentUploads = $this->prepareAttachmentUploads($formData);
             $rawName = trim((string)$this->request->getData('name'));
@@ -377,6 +386,15 @@ class RequestsController extends AppController
 
         if ($this->request->is(['patch', 'post', 'put'])) {
             $formData = $this->request->getData();
+            $venueChoice = trim((string)($formData['venue_modality_choice'] ?? ''));
+            $venueDetails = trim((string)($formData['venue_modality_details'] ?? ''));
+            $venueCombined = $venueChoice;
+            if ($venueDetails !== '') {
+                $venueCombined .= ($venueCombined !== '' ? ' - ' : '') . $venueDetails;
+            }
+            if ($venueCombined !== '') {
+                $formData['venue_modality'] = $venueCombined;
+            }
             $requestEntity = $this->Requests->patchEntity($requestEntity, $formData);
             $attachmentUploads = $this->prepareAttachmentUploads($formData);
             $detailsSource = $requestEntity->details;
