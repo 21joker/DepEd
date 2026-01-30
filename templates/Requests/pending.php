@@ -157,6 +157,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
               <th style="width: 18%;">Name</th>
               <th>Title</th>
               <th style="width: 18%;">Submitted</th>
+              <th style="width: 18%;">Last Updated</th>
 <?php if ($showStatus): ?>
                 <th style="width: 12%;">Status</th>
               <?php endif; ?>
@@ -180,6 +181,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                 </td>
 
                 <td><?= h($request->created_at ?? $request->created ?? '') ?></td>
+                <td><?= h($request->updated_at ?? $request->modified ?? $request->created_at ?? $request->created ?? '') ?></td>
 
                 <?php if ($showStatus): ?>
                   <td>

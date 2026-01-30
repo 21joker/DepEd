@@ -21,21 +21,45 @@ $detailsText = trim((string)$detailsSource);
 $fields = [];
 $matrix = [];
 $inMatrix = false;
+$currentLabel = null;
+$knownLabels = [
+    'PMIS Activity Code',
+    'Title of Activity',
+    'Proponent/s',
+    'Activity Schedule',
+    'Venue/Modality',
+    'Target Participants',
+    'Activity Description (Justification)',
+    'Activity Objectives',
+    'Expected Output',
+    'Monitoring & Evaluation',
+    'Budget Requirement',
+    'Source of Fund',
+    'Grand Total',
+    'Attachment SUB-ARO',
+    'Attachment SFWP',
+    'Attachment AR',
+    'Attachment AC',
+];
 
 if ($detailsText !== '') {
     $lines = preg_split("/\\r\\n|\\n|\\r/", $detailsText);
     foreach ($lines as $line) {
-        $line = trim((string)$line);
-        if ($line === '') {
+        $rawLine = (string)$line;
+        $trimLine = trim($rawLine);
+        if ($trimLine === '') {
+            if ($currentLabel !== null && !$inMatrix) {
+                $fields[$currentLabel] = rtrim($fields[$currentLabel] . "\n");
+            }
             continue;
         }
-        if (stripos($line, 'Expenditure Matrix:') === 0) {
+        if (stripos($trimLine, 'Expenditure Matrix:') === 0) {
             $inMatrix = true;
             continue;
         }
         if ($inMatrix) {
-            if (strpos($line, '- ') === 0) {
-                $row = substr($line, 2);
+            if (strpos($trimLine, '- ') === 0) {
+                $row = substr($trimLine, 2);
                 $parts = array_map('trim', explode('|', $row));
                 $matrix[] = [
                     'nature' => $parts[0] ?? '',
@@ -48,13 +72,23 @@ if ($detailsText !== '') {
             $inMatrix = false;
         }
 
-        $pos = strpos($line, ':');
-        if ($pos !== false) {
-            $label = trim(substr($line, 0, $pos));
-            $value = trim(substr($line, $pos + 1));
-            if ($label !== '') {
+        $matchedLabel = null;
+        foreach ($knownLabels as $label) {
+            $prefix = $label . ':';
+            if (stripos($trimLine, $prefix) === 0) {
+                $matchedLabel = $label;
+                $value = ltrim(substr($trimLine, strlen($prefix)));
                 $fields[$label] = $value;
+                $currentLabel = $label;
+                break;
             }
+        }
+        if ($matchedLabel !== null) {
+            continue;
+        }
+
+        if ($currentLabel !== null) {
+            $fields[$currentLabel] = rtrim($fields[$currentLabel] . "\n" . $rawLine);
         }
     }
 }
@@ -162,6 +196,12 @@ body {
     border: 1px solid #2b2b2b;
     padding: 6px;
     vertical-align: top;
+    height: auto;
+    overflow: visible;
+    white-space: normal;
+}
+.proposal-table {
+    table-layout: auto;
 }
 .proposal-table th.section {
     background: #e6e6e6;
@@ -176,6 +216,12 @@ body {
 .proposal-value {
     min-height: 18px;
     white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    display: block;
+    width: 100%;
+    max-height: none;
+    height: auto;
 }
 .budget-table {
     width: 100%;

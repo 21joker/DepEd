@@ -209,6 +209,8 @@ class RequestsController extends AppController
         $authId = (int)$this->Auth->user('id');
         $userRequests = [];
         $requestSummaries = [];
+        $declinedRequestIds = [];
+        $requestStatusById = [];
         $showForm = $this->request->is(['post', 'put', 'patch']) || $requestEntity->hasErrors();
         $isEdit = false;
 
@@ -222,7 +224,8 @@ class RequestsController extends AppController
                 ->where(['user_id' => $authId])
                 ->orderDesc('created_at')
                 ->orderDesc('id')
-                ->all();
+                ->all()
+                ->toArray();
             foreach ($userRequests as $request) {
                 $detailsSource = $request->details;
                 if ($detailsSource === null || trim((string)$detailsSource) === '') {
@@ -241,6 +244,50 @@ class RequestsController extends AppController
                     'attachment_ar' => $fields['Attachment AR'] ?? '',
                     'attachment_ac' => $fields['Attachment AC'] ?? '',
                 ];
+            }
+            $requestIds = array_map('intval', array_map(function ($request) {
+                return $request->id ?? 0;
+            }, $userRequests));
+            $requestIds = array_values(array_filter($requestIds));
+            if (!empty($requestIds)) {
+                try {
+                    $this->loadModel('RequestApprovals');
+                    $declinedRequestIds = [];
+                    $approvalRows = $this->RequestApprovals->find()
+                        ->select(['request_id', 'status'])
+                        ->where(['request_id IN' => $requestIds])
+                        ->enableHydration(false)
+                        ->all();
+                    foreach ($approvalRows as $row) {
+                        $status = strtolower(trim((string)($row['status'] ?? '')));
+                        if ($status === 'declined') {
+                            $declinedRequestIds[] = (int)($row['request_id'] ?? 0);
+                        }
+                    }
+                    $declinedRequestIds = array_values(array_unique(array_filter($declinedRequestIds)));
+                } catch (\Throwable $e) {
+                    $declinedRequestIds = [];
+                }
+            }
+            $declinedLookup = !empty($declinedRequestIds)
+                ? array_fill_keys($declinedRequestIds, true)
+                : [];
+            foreach ($userRequests as $request) {
+                $requestId = (int)($request->id ?? 0);
+                if (!$requestId) {
+                    continue;
+                }
+                $isDeclined = isset($declinedLookup[$requestId]);
+                $isApproved = in_array($request->status ?? null, ['approved', 'Approved'], true)
+                    || ((int)($request->approvals_needed ?? 0) > 0
+                        && (int)($request->approvals_count ?? 0) >= (int)($request->approvals_needed ?? 0));
+                if ($isDeclined) {
+                    $requestStatusById[$requestId] = 'declined';
+                } elseif ($isApproved) {
+                    $requestStatusById[$requestId] = 'approved';
+                } else {
+                    $requestStatusById[$requestId] = 'pending';
+                }
             }
         } elseif ($lastRequestId) {
             $lastRequest = $this->Requests->find()
@@ -278,6 +325,8 @@ class RequestsController extends AppController
             'approvalMeta',
             'userRequests',
             'requestSummaries',
+            'declinedRequestIds',
+            'requestStatusById',
             'showForm',
             'isEdit'
         ));
@@ -305,8 +354,22 @@ class RequestsController extends AppController
             return $this->redirect(['action' => 'add']);
         }
 
+        $isDeclined = ($requestEntity->status ?? '') === 'declined';
+        if (!$isDeclined) {
+            try {
+                $this->loadModel('RequestApprovals');
+                $isDeclined = $this->RequestApprovals->find()
+                    ->where([
+                        'request_id' => $requestEntity->id,
+                        'status' => 'declined',
+                    ])
+                    ->count() > 0;
+            } catch (\Throwable $e) {
+                // Fallback to status column only.
+            }
+        }
         $isLocked = in_array($requestEntity->status, ['approved', 'Approved'], true)
-            || ((int)$requestEntity->approvals_count > 0);
+            || ((int)$requestEntity->approvals_count > 0 && !$isDeclined);
         if ($isLocked) {
             $this->Flash->error('This request can no longer be edited.');
             return $this->redirect(['action' => 'add']);
@@ -1098,7 +1161,7 @@ class RequestsController extends AppController
                     ->toList();
                 $pendingLower = array_diff($lowerAdminIds, array_map('intval', $approvedLower));
                 if (!empty($pendingLower)) {
-                    $this->Flash->error('Please wait for lower-level approvals before approving.');
+                    $this->Flash->error('Final approval is pending completion of required approvals.');
                     return $this->redirect(['action' => 'pending']);
                 }
             }
@@ -1139,7 +1202,9 @@ class RequestsController extends AppController
             ->count();
 
         $requestEntity->approvals_count = $approvedCount;
-        if ($approvedCount >= (int)$requestEntity->approvals_needed) {
+        if ($declinedCount > 0) {
+            $requestEntity->status = 'declined';
+        } elseif ($approvedCount >= (int)$requestEntity->approvals_needed) {
             $requestEntity->status = 'approved';
         } else {
             $requestEntity->status = 'pending';
@@ -1207,7 +1272,9 @@ class RequestsController extends AppController
             ->count();
 
         $requestEntity->approvals_count = $approvedCount;
-        if ($approvedCount >= (int)$requestEntity->approvals_needed) {
+        if ($declinedCount > 0) {
+            $requestEntity->status = 'declined';
+        } elseif ($approvedCount >= (int)$requestEntity->approvals_needed) {
             $requestEntity->status = 'approved';
         } else {
             $requestEntity->status = 'pending';
@@ -1472,32 +1539,50 @@ class RequestsController extends AppController
             return $fields;
         }
 
+        $knownLabels = [
+            'PMIS Activity Code',
+            'Title of Activity',
+            'Proponent/s',
+            'Activity Schedule',
+            'Venue/Modality',
+            'Target Participants',
+            'Activity Description (Justification)',
+            'Activity Objectives',
+            'Expected Output',
+            'Monitoring & Evaluation',
+            'Budget Requirement',
+            'Source of Fund',
+            'Grand Total',
+            'Attachment SUB-ARO',
+            'Attachment SFWP',
+            'Attachment AR',
+            'Attachment AC',
+        ];
         $lines = preg_split("/\\r\\n|\\n|\\r/", $detailsText);
         $inMatrix = false;
         foreach ($lines as $line) {
-            $line = trim((string)$line);
-            if ($line === '') {
+            $trimLine = trim((string)$line);
+            if ($trimLine === '') {
                 continue;
             }
-            if (stripos($line, 'Expenditure Matrix:') === 0) {
+            if (stripos($trimLine, 'Expenditure Matrix:') === 0) {
                 $inMatrix = true;
                 continue;
             }
             if ($inMatrix) {
-                if (strpos($line, '- ') === 0) {
+                if (strpos($trimLine, '- ') === 0) {
                     continue;
                 }
                 $inMatrix = false;
             }
 
-            $pos = strpos($line, ':');
-            if ($pos === false) {
-                continue;
-            }
-            $label = trim(substr($line, 0, $pos));
-            $value = trim(substr($line, $pos + 1));
-            if ($label !== '') {
-                $fields[$label] = $value;
+            foreach ($knownLabels as $label) {
+                $prefix = $label . ':';
+                if (stripos($trimLine, $prefix) === 0) {
+                    $value = ltrim(substr($trimLine, strlen($prefix)));
+                    $fields[$label] = $value;
+                    break;
+                }
             }
         }
 

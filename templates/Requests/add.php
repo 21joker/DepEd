@@ -119,9 +119,9 @@
 
 <div class="col-12">
     <div class="card">
-        <div class="card-header">
-            <div class="d-flex align-items-center">
-                <h3 class="card-title mb-0">My Proposal Forms</h3>
+    <div class="card-header">
+        <div class="d-flex align-items-center">
+            <h3 class="card-title mb-0">My Proposal Forms</h3>
                 <input
                     type="text"
                     class="form-control form-control-sm ml-3"
@@ -141,6 +141,7 @@
                     <thead>
                         <tr>
                             <th>#</th>
+                            <th>Request ID</th>
                             <th>Logs</th>
                             <th>AC</th>
                             <th>Title of Activity</th>
@@ -171,8 +172,12 @@
                                 $sfwp = trim((string)($summary['attachment_sfwp'] ?? ''));
                                 $ar = trim((string)($summary['attachment_ar'] ?? ''));
                                 $acAttach = trim((string)($summary['attachment_ac'] ?? ''));
-                                $isLocked = in_array($request->status ?? null, ['approved', 'Approved'], true)
-                                    || ((int)($request->approvals_count ?? 0) > 0);
+                                $requestStatusById = $requestStatusById ?? [];
+                                $rowStatus = $requestStatusById[(int)$request->id] ?? ($request->status ?? 'pending');
+                                $isDeclined = $rowStatus === 'declined';
+                                $isApprovedRow = $rowStatus === 'approved';
+                                $isLocked = $isApprovedRow
+                                    || ((int)($request->approvals_count ?? 0) > 0 && !$isDeclined);
                                 $logTime = $request->updated_at ?? $request->created_at ?? null;
                                 $logLabel = 'N/A';
                                 if ($logTime instanceof \Cake\I18n\FrozenTime) {
@@ -184,12 +189,12 @@
                                 }
                                 $isApproved = (int)($request->approvals_needed ?? 0) > 0
                                     && (int)($request->approvals_count ?? 0) >= (int)($request->approvals_needed ?? 0);
-                                if ($isApproved || in_array($request->status ?? null, ['approved', 'Approved'], true)) {
+                                if ($isApprovedRow) {
                                     $statusLabel = 'Fully Approved';
                                     $statusClass = 'success';
-                                } elseif (($request->status ?? '') === 'declined') {
+                                } elseif ($isDeclined) {
                                     $statusLabel = 'Review';
-                                    $statusClass = 'warning';
+                                    $statusClass = 'danger';
                                 } else {
                                     $statusLabel = 'Pending';
                                     $statusClass = 'secondary';
@@ -208,6 +213,7 @@
                             ?>
                             <tr>
                                 <td><?= $rowIndex ?></td>
+                                <td><?= (int)$request->id ?></td>
                                 <td><?= h($logLabel) ?></td>
                                 <td><?= $ac !== '' ? h($ac) : 'N/A' ?></td>
                                 <td><?= $title !== '' ? h($title) : 'N/A' ?></td>
@@ -303,7 +309,7 @@
     </div>
 </div>
 
-<div class="col-lg-8 proposal-form-container <?= !empty($showForm) ? 'is-visible' : '' ?>" id="proposal-form-container">
+<div class="col-12 proposal-form-container <?= !empty($showForm) ? 'is-visible' : '' ?>" id="proposal-form-container">
     <div class="card">
         <div class="card-body">
             <?= $this->Flash->render() ?>
@@ -370,7 +376,8 @@
                                     <?= $this->Form->control('activity_schedule_from', [
                                         'type' => 'date',
                                         'label' => false,
-                                        'class' => 'form-control'
+                                        'class' => 'form-control',
+                                        'id' => 'activity-schedule-from'
                                     ]) ?>
                                 </div>
                                 <div class="col-auto px-2">
@@ -380,7 +387,8 @@
                                     <?= $this->Form->control('activity_schedule_to', [
                                         'type' => 'date',
                                         'label' => false,
-                                        'class' => 'form-control'
+                                        'class' => 'form-control',
+                                        'id' => 'activity-schedule-to'
                                     ]) ?>
                                 </div>
                             </div>
@@ -562,6 +570,24 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    var scheduleFrom = document.getElementById('activity-schedule-from');
+    var scheduleTo = document.getElementById('activity-schedule-to');
+    if (scheduleFrom && scheduleTo) {
+        var syncScheduleRange = function () {
+            if (scheduleFrom.value) {
+                scheduleTo.min = scheduleFrom.value;
+                if (scheduleTo.value && scheduleTo.value < scheduleFrom.value) {
+                    scheduleTo.value = scheduleFrom.value;
+                }
+            } else {
+                scheduleTo.min = '';
+            }
+        };
+        scheduleFrom.addEventListener('change', syncScheduleRange);
+        scheduleTo.addEventListener('change', syncScheduleRange);
+        syncScheduleRange();
+    }
+
     var toggleButton = document.getElementById('toggle-proposal-form');
     var formContainer = document.getElementById('proposal-form-container');
     if (toggleButton && formContainer) {
@@ -703,6 +729,24 @@ document.addEventListener('DOMContentLoaded', function () {
         totalInput.value = formatPeso(total.toFixed(2));
     }
 
+    function updateGrandTotal() {
+        var total = 0;
+        document.querySelectorAll('.matrix-total').forEach(function (input) {
+            var value = Number(normalizeNumber(input.value || ''));
+            if (!Number.isNaN(value)) {
+                total += value;
+            }
+        });
+        var grandInput = document.querySelector('input[name="grand_total"]');
+        var budgetInput = document.querySelector('input[name="budget_requirement"]');
+        if (grandInput) {
+            grandInput.value = total ? formatPeso(total.toFixed(2)) : '';
+        }
+        if (budgetInput) {
+            budgetInput.value = total ? formatPeso(total.toFixed(2)) : '';
+        }
+    }
+
     function handleFocus(event) {
         var input = event.target;
         input.value = normalizeNumber(input.value);
@@ -741,11 +785,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (event.target.classList.contains('matrix-no') || event.target.classList.contains('matrix-amount')) {
             updateMatrixRowTotal(event.target.closest('tr'));
+            updateGrandTotal();
+        } else if (event.target.classList.contains('matrix-total')) {
+            updateGrandTotal();
         }
     });
 
     document.querySelectorAll('#expenditure-matrix tbody tr').forEach(function (row) {
         updateMatrixRowTotal(row);
     });
+    updateGrandTotal();
 });
 </script>

@@ -150,18 +150,14 @@ $(function () {
                 if (!data) {
                     return;
                 }
-                var parts = [];
-                if (data.first_name) { parts.push(data.first_name); }
-                if (data.middle_initial) { parts.push(data.middle_initial); }
-                if (data.last_name) { parts.push(data.last_name); }
-                var fullName = parts.join(' ');
+                var fullName = buildDisplayName(data);
 
                 $('#view-username').text(data.username || '—');
                 $('#view-fullname').text(fullName || data.username || '—');
                 $('#view-suffix').text(data.suffix || '—');
-                $('#view-degree').text(data.degree || '�');
+                $('#view-degree').text(data.degree || '�');
                 if ($('#view-rank').length) {
-                    $('#view-rank').text(data.rank || '�');
+                    $('#view-rank').text(data.rank || '�');
                 }
                 $('#view-position').text(data.position || '—');
                 $('#view-email').text(data.email_address || '—');
@@ -351,6 +347,16 @@ $(function () {
     });
 });
 
+function buildDisplayName(data) {
+    var parts = [];
+    if (data.first_name) { parts.push(data.first_name); }
+    if (data.middle_initial) { parts.push(data.middle_initial); }
+    if (data.last_name) { parts.push(data.last_name); }
+    if (data.suffix) { parts.push(data.suffix); }
+    if (data.degree) { parts.push(data.degree); }
+    if (data.rank) { parts.push(data.rank); }
+    return parts.join(' ').trim();
+}
 function getUsers() {
     var isEnroll = $('#users-table').data('enroll') === 1 || new URLSearchParams(window.location.search).get('enroll') === '1';
     var columns;
@@ -368,11 +374,7 @@ function getUsers() {
             {
                 data: null,
                 render: function (data) {
-                    var parts = [];
-                    if (data.first_name) { parts.push(data.first_name); }
-                    if (data.middle_initial) { parts.push(data.middle_initial); }
-                    if (data.last_name) { parts.push(data.last_name); }
-                    return parts.join(' ') || data.username || '';
+                    return buildDisplayName(data) || data.username || '';
                 }
             },
             {data: "email_address"},
