@@ -75,13 +75,21 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
 }
 .table-responsive { overflow-x: auto; }
 .subject-truncate {
-  max-width: 520px;
+  max-width: 360px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 @media (max-width: 768px) {
-  .subject-truncate { max-width: 260px; }
+  .subject-truncate { max-width: 220px; }
+}
+.table-sm td,
+.table-sm th {
+  white-space: nowrap;
+}
+.table-sm td.wrap {
+  white-space: normal;
+  min-width: 220px;
 }
 .action-wrap {
   display: inline-flex;
@@ -110,6 +118,18 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
     <div class="icon"><i class="fas fa-ban"></i></div>
   </div>
 
+</div>
+<?php endif; ?>
+
+<?php if (!$inModal && ($auth['role'] ?? '') === 'Superuser'): ?>
+<div class="dashboard-row">
+  <div class="small-box bg-info">
+    <div class="inner">
+      <h3><?= (int)($totalSubmitted ?? 0) ?></h3>
+      <p>Total Numbers of Submitted Activity</p>
+    </div>
+    <div class="icon"><i class="fas fa-clipboard-list"></i></div>
+  </div>
 </div>
 <?php endif; ?>
 
@@ -154,30 +174,93 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
         <table class="table table-bordered table-hover table-sm">
           <thead>
             <tr>
-              <th style="width: 18%;">Name</th>
-              <th>Title</th>
-              <th style="width: 18%;">Submitted</th>
-              <th style="width: 18%;">Last Updated</th>
+              <th style="width: 14%;">Name</th>
+              <th>AC</th>
+              <th>Title of Activity</th>
+              <th>Activity Schedule</th>
+              <th>Budget Requirement</th>
+              <th>Source of Fund</th>
+              <th>Grand Total</th>
+              <th>SUB-ARO</th>
+              <th>S/WFP</th>
+              <th>AR</th>
+              <th>AC</th>
+              <th style="width: 12%;">Submitted</th>
+              <th style="width: 12%;">Last Updated</th>
 <?php if ($showStatus): ?>
-                <th style="width: 12%;">Status</th>
+                <th style="width: 10%;">Status</th>
               <?php endif; ?>
-              <th style="width: 18%;">Action</th>
+              <th style="width: 12%;">Action</th>
             </tr>
           </thead>
 
           <tbody>
-            <?php if (!$hasRequests): ?>
+<?php if (!$hasRequests): ?>
               <tr>
-                <td colspan="<?= $showStatus ? 5 : 4 ?>" class="text-center text-muted">No requests found.</td>
+                <td colspan="<?= $showStatus ? 14 : 13 ?>" class="text-center text-muted">No requests found.</td>
               </tr>
             <?php endif; ?>
 
             <?php foreach ($requests as $request): ?>
+              <?php
+                $summary = $requestSummaries[$request->id] ?? [];
+                $ac = trim((string)($summary['pmis_activity_code'] ?? ''));
+                $title = trim((string)($summary['title_of_activity'] ?? $request->title ?? ''));
+                $schedule = trim((string)($summary['activity_schedule'] ?? ''));
+                $budget = trim((string)($summary['budget_requirement'] ?? ''));
+                $source = trim((string)($summary['source_of_fund'] ?? ''));
+                $grand = trim((string)($summary['grand_total'] ?? ''));
+                $subAro = trim((string)($summary['attachment_sub_aro'] ?? ''));
+                $sfwp = trim((string)($summary['attachment_sfwp'] ?? ''));
+                $ar = trim((string)($summary['attachment_ar'] ?? ''));
+                $acAttach = trim((string)($summary['attachment_ac'] ?? ''));
+                $requestId = (int)($request->id ?? 0);
+                $buildFileLink = function (string $filename) use ($requestId) {
+                    $safeName = basename($filename);
+                    if ($safeName === '') {
+                        return null;
+                    }
+                    return [
+                        'name' => $safeName,
+                        'url' => $this->Url->build('/uploads/requests/' . $requestId . '/' . $safeName),
+                    ];
+                };
+              ?>
               <tr>
                 <td><?= h($request->name ?? '') ?></td>
-
-                <td class="subject-truncate" title="<?= h($request->title ?? '') ?>">
-                  <?= h($request->title ?? '') ?>
+                <td><?= $ac !== '' ? h($ac) : 'N/A' ?></td>
+                <td class="wrap" title="<?= h($title) ?>"><?= $title !== '' ? h($title) : 'N/A' ?></td>
+                <td><?= $schedule !== '' ? h($schedule) : 'N/A' ?></td>
+                <td><?= $budget !== '' ? h($budget) : 'N/A' ?></td>
+                <td><?= $source !== '' ? h($source) : 'N/A' ?></td>
+                <td><?= $grand !== '' ? h($grand) : 'N/A' ?></td>
+                <td>
+                  <?php if ($subAro !== '' && ($link = $buildFileLink($subAro))): ?>
+                    <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener"><?= h($link['name']) ?></a>
+                  <?php else: ?>
+                    <?= $subAro !== '' ? h($subAro) : 'N/A' ?>
+                  <?php endif; ?>
+                </td>
+                <td>
+                  <?php if ($sfwp !== '' && ($link = $buildFileLink($sfwp))): ?>
+                    <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener"><?= h($link['name']) ?></a>
+                  <?php else: ?>
+                    <?= $sfwp !== '' ? h($sfwp) : 'N/A' ?>
+                  <?php endif; ?>
+                </td>
+                <td>
+                  <?php if ($ar !== '' && ($link = $buildFileLink($ar))): ?>
+                    <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener"><?= h($link['name']) ?></a>
+                  <?php else: ?>
+                    <?= $ar !== '' ? h($ar) : 'N/A' ?>
+                  <?php endif; ?>
+                </td>
+                <td>
+                  <?php if ($acAttach !== '' && ($link = $buildFileLink($acAttach))): ?>
+                    <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener"><?= h($link['name']) ?></a>
+                  <?php else: ?>
+                    <?= $acAttach !== '' ? h($acAttach) : 'N/A' ?>
+                  <?php endif; ?>
                 </td>
 
                 <td><?= h($request->created_at ?? $request->created ?? '') ?></td>
@@ -302,15 +385,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var term = (input.value || '').toLowerCase();
     var rows = table.querySelectorAll('tbody tr');
     rows.forEach(function (row) {
-      var cells = row.querySelectorAll('td');
-      if (!cells.length) {
-        row.style.display = '';
-        return;
-      }
-      var nameText = (cells[0] && cells[0].textContent ? cells[0].textContent : '').toLowerCase();
-      var subjectText = (cells[1] && cells[1].textContent ? cells[1].textContent : '').toLowerCase();
-      var haystack = nameText + ' ' + subjectText;
-      row.style.display = haystack.indexOf(term) !== -1 ? '' : 'none';
+      var text = (row.textContent || '').toLowerCase();
+      row.style.display = text.indexOf(term) !== -1 ? '' : 'none';
     });
   }
   input.addEventListener('input', filterRows);

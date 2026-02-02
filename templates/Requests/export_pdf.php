@@ -250,6 +250,31 @@ body {
     color: #0b5ed7;
     text-decoration: underline;
 }
+.footer-text .info-row {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.footer-text .info-row img {
+    width: 14px;
+    height: 14px;
+    margin-top: 2px;
+}
+.footer-text .info-row.inline-row {
+    align-items: center;
+}
+.footer-text .info-row.inline-row img {
+    margin-top: 0;
+}
+.footer-text .info-row.inline-row > div {
+    white-space: nowrap;
+    display: inline-block;
+}
+.footer-text .info-row.inline-row a {
+    white-space: nowrap;
+    display: inline-block;
+}
 @media print {
     body { background: #fff; }
     .toolbar { display: none; }
@@ -292,7 +317,15 @@ body {
         <tbody>
             <tr>
                 <td class="label">PMIS Activity Code (AC):</td>
-                <td class="proposal-value"><?= h(_req_field($fields, 'PMIS Activity Code')) ?></td>
+                <?php
+                    $pmisCode = _req_field($fields, 'PMIS Activity Code');
+                    $pmisOffice = _req_field($fields, 'PMIS Activity Office');
+                    $pmisLabel = $pmisCode;
+                    if ($pmisOffice !== '') {
+                        $pmisLabel = trim($pmisLabel . ' (' . $pmisOffice . ')');
+                    }
+                ?>
+                <td class="proposal-value"><?= h($pmisLabel) ?></td>
             </tr>
             <tr>
                 <td class="label">Title of Activity:</td>
@@ -469,12 +502,32 @@ body {
                 ]) ?>
             </div>
             <div class="footer-text">
-                <div>Childrens Park, Caloocan, Santiago City, 3311</div>
-                <div>(078) 682-0156</div>
-                <div><a href="mailto:santiago.city@deped.gov.ph">santiago.city@deped.gov.ph</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                <a href="https://santiagocity.deped.gov.ph">https://santiagocity.deped.gov.ph</a></div>
-                <div><a href="https://www.facebook.com/SDOsantiagoCitySCTEx">https://www.facebook.com/SDOsantiagoCitySCTEx</a></div>
+                <div class="info-row">
+                    <?= $this->Html->image('location.png', ['alt' => 'Location']) ?>
+                    <div>Childrens Park, Caloocan, Santiago City, 3311</div>
+                </div>
+                <div>
+                </div>
+                <div class="info-row">
+                    <?= $this->Html->image('number.png', ['alt' => 'Phone']) ?>
+                    <div>(078) 682-0156</div>
+                </div>
+                <div>
+                </div>
+                <div class="info-row inline-row">
+                    <?= $this->Html->image('email.png', ['alt' => 'Email']) ?>
+                    <div><a href="mailto:santiago.city@deped.gov.ph">santiago.city@deped.gov.ph</a></div>
+                </div>
+                <div class="info-row inline-row">
+                    <?= $this->Html->image('link.png', ['alt' => 'Website']) ?>
+                    <div><a href="https://santiagocity.deped.gov.ph">https://santiagocity.deped.gov.ph</a></div>
+                </div>
+                <div class="info-row">
+                    <?= $this->Html->image('facebook.png', ['alt' => 'Facebook']) ?>
+                    <div><a href="https://www.facebook.com/SDOsantiagoCitySCTEx">https://www.facebook.com/SDOsantiagoCitySCTEx</a></div>
+                </div>
             </div>
+            
         </div>
     </div>
 </div>

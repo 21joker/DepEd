@@ -146,6 +146,38 @@
             </div>
         </div>
         <div class="card-body table-responsive">
+            <?php
+                $userCounts = $userCounts ?? ['total' => 0, 'approved' => 0, 'pending' => 0];
+            ?>
+            <div class="row mb-3">
+                <div class="col-md-4 col-sm-12 mb-2">
+                    <div class="small-box bg-info">
+                        <div class="inner">
+                            <h3><?= (int)$userCounts['total'] ?></h3>
+                            <p>Total Requests</p>
+                        </div>
+                        <div class="icon"><i class="fas fa-clipboard-list"></i></div>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-12 mb-2">
+                    <div class="small-box bg-success">
+                        <div class="inner">
+                            <h3><?= (int)$userCounts['approved'] ?></h3>
+                            <p>Total Approved Requests</p>
+                        </div>
+                        <div class="icon"><i class="fas fa-check"></i></div>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-12 mb-2">
+                    <div class="small-box bg-warning">
+                        <div class="inner">
+                            <h3><?= (int)$userCounts['pending'] ?></h3>
+                            <p>Total Pending Requests</p>
+                        </div>
+                        <div class="icon"><i class="fas fa-hourglass-half"></i></div>
+                    </div>
+                </div>
+            </div>
             <?php if (!empty($userRequests)): ?>
                 <table class="table table-bordered table-striped proposal-list-table" id="proposal-forms-table">
                     <thead>
@@ -364,7 +396,7 @@
                 <div class="small">For GAS-MOOE and Centrally Managed and Funded Activities</div>
             </div>
 
-            <?= $this->Form->create($requestEntity, ['type' => 'file']) ?>
+            <?= $this->Form->create($requestEntity, ['type' => 'file', 'id' => 'proposal-form']) ?>
             <table class="table proposal-table">
                 <thead>
                     <tr>
@@ -543,7 +575,7 @@
                                 <thead>
                                     <tr>
                                         <th>Nature of expenditure</th>
-                                        <th>No.</th>
+                                        <th>No./Quantity</th>
                                         <th>Amount</th>
                                         <th>Total</th>
                                     </tr>
@@ -590,7 +622,10 @@
                     </tr>
                     <tr>
                         <td class="label">Grand Total</td>
-                        <td><?= $this->Form->text('grand_total', ['class' => 'form-control peso-format']) ?></td>
+                        <td>
+                            <?= $this->Form->text('grand_total', ['class' => 'form-control peso-format']) ?>
+                            <div id="budget-status" class="alert mt-2 mb-0" style="display: none;"></div>
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -858,6 +893,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var sourceTotal = getSourceFundTotal();
             budgetInput.value = sourceTotal ? formatPeso(sourceTotal.toFixed(2)) : '';
         }
+        updateBudgetStatus();
     }
 
     function getSourceFundTotal() {
@@ -869,6 +905,47 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
         return sum;
+    }
+
+    function updateBudgetStatus() {
+        var budgetInput = document.querySelector('input[name="budget_requirement"]');
+        var grandInput = document.querySelector('input[name="grand_total"]');
+        var status = document.getElementById('budget-status');
+        if (!budgetInput || !grandInput || !status) {
+            return;
+        }
+        var budgetValue = Number(normalizeNumber(budgetInput.value || ''));
+        var grandValue = Number(normalizeNumber(grandInput.value || ''));
+        if (!Number.isFinite(budgetValue)) {
+            budgetValue = 0;
+        }
+        if (!Number.isFinite(grandValue)) {
+            grandValue = 0;
+        }
+        if (!budgetInput.value && !grandInput.value) {
+            status.style.display = 'none';
+            status.textContent = '';
+            status.className = 'alert mt-2 mb-0';
+            return;
+        }
+        if (grandValue > budgetValue) {
+            status.textContent = 'MISMATCH';
+            status.className = 'alert alert-danger mt-2 mb-0';
+            status.style.display = 'block';
+            alert('MISMATCH');
+            return;
+        }
+        if (budgetValue > grandValue) {
+            var remaining = budgetValue - grandValue;
+            status.textContent = 'REMAINING BALANCE: ' + formatPeso(remaining.toFixed(2));
+            status.className = 'alert alert-warning mt-2 mb-0';
+            status.style.display = 'block';
+            alert('REMAINING BALANCE: ' + formatPeso(remaining.toFixed(2)));
+            return;
+        }
+        status.style.display = 'none';
+        status.textContent = '';
+        status.className = 'alert mt-2 mb-0';
     }
 
     function handleFocus(event) {
@@ -914,6 +991,8 @@ document.addEventListener('DOMContentLoaded', function () {
             updateGrandTotal();
         } else if (event.target.closest && event.target.closest('#source-of-fund-table')) {
             updateGrandTotal();
+        } else if (event.target.name === 'budget_requirement' || event.target.name === 'grand_total') {
+            updateBudgetStatus();
         }
     });
 
@@ -921,5 +1000,33 @@ document.addEventListener('DOMContentLoaded', function () {
         updateMatrixRowTotal(row);
     });
     updateGrandTotal();
+    updateBudgetStatus();
+
+    var proposalForm = document.getElementById('proposal-form');
+    if (proposalForm) {
+        proposalForm.addEventListener('submit', function (event) {
+            var budgetInput = document.querySelector('input[name="budget_requirement"]');
+            var grandInput = document.querySelector('input[name="grand_total"]');
+            var budgetValue = Number(normalizeNumber(budgetInput ? budgetInput.value : ''));
+            var grandValue = Number(normalizeNumber(grandInput ? grandInput.value : ''));
+            if (!Number.isFinite(budgetValue)) {
+                budgetValue = 0;
+            }
+            if (!Number.isFinite(grandValue)) {
+                grandValue = 0;
+            }
+            if (grandValue > budgetValue) {
+                alert('MISMATCH');
+                event.preventDefault();
+                return;
+            }
+            if (budgetValue > grandValue) {
+                var remaining = budgetValue - grandValue;
+                alert('REMAINING BALANCE: ' + formatPeso(remaining.toFixed(2)));
+                event.preventDefault();
+                return;
+            }
+        });
+    }
 });
 </script>

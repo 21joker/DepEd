@@ -212,7 +212,7 @@ $cakeDescription = 'SDO ACTIVTITY';
             <!-- Sidebar user panel (optional) -->
             <div class="user-panel mt-3 pb-3 mb-3 d-flex">
                 <div class="image">
-                    <?= $this->Html->image('user2-160x160.jpg', [
+                    <?= $this->Html->image('resized-image.png', [
                         'pathPrefix' => 'dist/img/',
                         'class' => 'img-circle elevation-2',
                         'alt' => 'User Image',
@@ -277,7 +277,7 @@ $cakeDescription = 'SDO ACTIVTITY';
                             <a href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'project']) ?>"
                                class="nav-link <?= $isProjectProposal ? 'active' : '' ?>">
                                 <i class="nav-icon fas fa-file"></i>
-                                <p>Project Proposal</p>
+                                <p>PD Proposal</p>
                             </a>
                         <?php endif; ?>
                         <?php if (in_array($auth['role'] ?? null, ['Superuser', 'Administrator', 'Approver'], true)): ?>

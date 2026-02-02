@@ -146,6 +146,15 @@ body.login-bg::after {
     box-shadow: 0 0 0 4px var(--ring);
     background: #ffffff;
 }
+.privacy-text {
+    font-size: 12px;
+    color: #475569;
+    line-height: 1.4;
+}
+.custom-control-label {
+    font-weight: 600;
+    color: #0f172a;
+}
 
 .login-action {
     margin-top: 12px;
@@ -188,6 +197,50 @@ body.login-bg::after {
     font-size: 12px;
     letter-spacing: 0.2px;
     z-index: 5;
+}
+
+/* Privacy modal polish */
+#privacy-modal .modal-content {
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+}
+#privacy-modal .modal-header {
+    border-bottom: 1px solid #e2e8f0;
+    padding: 16px 20px;
+}
+#privacy-modal .modal-title {
+    font-weight: 700;
+    font-size: 16px;
+    color: #0f172a;
+}
+#privacy-modal .modal-body {
+    padding: 18px 20px 8px;
+}
+#privacy-modal .modal-footer {
+    border-top: 1px solid #e2e8f0;
+    padding: 12px 20px 16px;
+    gap: 8px;
+}
+#privacy-modal .privacy-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #475569;
+}
+#privacy-modal .custom-control-label {
+    font-weight: 600;
+    color: #0f172a;
+}
+#privacy-modal .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #3b82f6);
+    border: none;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-weight: 600;
+}
+#privacy-modal .btn-outline-secondary {
+    border-radius: 10px;
+    padding: 8px 16px;
 }
 </style>
 

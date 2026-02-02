@@ -87,6 +87,7 @@ class RequestsController extends AppController
             $detailsLines = [];
             $detailsMap = [
                 'PMIS Activity Code' => 'pmis_activity_code',
+                'PMIS Activity Office' => 'pmis_activity_office',
                 'Title of Activity' => 'title_of_activity',
                 'Proponent/s' => 'proponents',
                 'Venue/Modality' => 'venue_modality',
@@ -237,6 +238,7 @@ class RequestsController extends AppController
         $requestSummaries = [];
         $declinedRequestIds = [];
         $requestStatusById = [];
+        $userCounts = ['total' => 0, 'approved' => 0, 'pending' => 0];
         $showForm = $this->request->is(['post', 'put', 'patch']) || $requestEntity->hasErrors();
         $isEdit = false;
 
@@ -315,6 +317,15 @@ class RequestsController extends AppController
                     $requestStatusById[$requestId] = 'pending';
                 }
             }
+
+            $userCounts['total'] = count($userRequests);
+            foreach ($requestStatusById as $status) {
+                if ($status === 'approved') {
+                    $userCounts['approved']++;
+                } elseif ($status === 'pending') {
+                    $userCounts['pending']++;
+                }
+            }
         } elseif ($lastRequestId) {
             $lastRequest = $this->Requests->find()
                 ->where(['id' => $lastRequestId])
@@ -353,6 +364,7 @@ class RequestsController extends AppController
             'requestSummaries',
             'declinedRequestIds',
             'requestStatusById',
+            'userCounts',
             'showForm',
             'isEdit'
         ));
@@ -443,6 +455,7 @@ class RequestsController extends AppController
             $detailsLines = [];
             $detailsMap = [
                 'PMIS Activity Code' => 'pmis_activity_code',
+                'PMIS Activity Office' => 'pmis_activity_office',
                 'Title of Activity' => 'title_of_activity',
                 'Proponent/s' => 'proponents',
                 'Venue/Modality' => 'venue_modality',
@@ -785,6 +798,7 @@ class RequestsController extends AppController
 
         $adminApprovalStatus = [];
         $adminApprovalMeta = [];
+        $requestSummaries = [];
         if ($adminId > 0 && !empty($requests)) {
             try {
                 $this->loadModel('RequestApprovals');
@@ -818,8 +832,28 @@ class RequestsController extends AppController
                 }
             } catch (\Throwable $e) {
                 // Ignore if approvals table isn't available.
-            }
-        }
+              }
+          }
+
+          foreach ($requests as $request) {
+              $detailsSource = $request->details;
+              if ($detailsSource === null || trim((string)$detailsSource) === '') {
+                  $detailsSource = $request->message ?? '';
+              }
+              $fields = $this->extractFieldsFromDetails((string)$detailsSource);
+              $requestSummaries[$request->id] = [
+                  'pmis_activity_code' => $fields['PMIS Activity Code'] ?? '',
+                  'title_of_activity' => $fields['Title of Activity'] ?? ($request->title ?? ''),
+                  'activity_schedule' => $fields['Activity Schedule'] ?? '',
+                  'budget_requirement' => $fields['Budget Requirement'] ?? '',
+                  'source_of_fund' => $fields['Source of Fund'] ?? '',
+                  'grand_total' => $fields['Grand Total'] ?? '',
+                  'attachment_sub_aro' => $fields['Attachment SUB-ARO'] ?? '',
+                  'attachment_sfwp' => $fields['Attachment SFWP'] ?? '',
+                  'attachment_ar' => $fields['Attachment AR'] ?? '',
+                  'attachment_ac' => $fields['Attachment AC'] ?? '',
+              ];
+          }
 
         $pageTitle = 'Pending Requests';
         $headerBadge = 'Note: All Activities needs approver approval';
@@ -828,9 +862,10 @@ class RequestsController extends AppController
         if ($inModal) {
             $this->viewBuilder()->setLayout('ajax');
         }
+        $totalSubmitted = is_countable($requests) ? count($requests) : 0;
         unset($counts['deleted']);
-        $this->set(compact('requests', 'counts', 'pageTitle', 'headerBadge', 'viewType', 'inModal', 'adminApprovalStatus', 'adminApprovalMeta'));
-    }
+        $this->set(compact('requests', 'counts', 'pageTitle', 'headerBadge', 'viewType', 'inModal', 'adminApprovalStatus', 'adminApprovalMeta', 'requestSummaries', 'totalSubmitted'));
+      }
 
     public function approved()
     {

@@ -194,11 +194,22 @@ function _approval_label(?string $status): string
     border-top: 1px solid #2b2b2b;
     padding-top: 6px;
 }
-.proposal-footer img {
-    width: 100%;
-    height: auto;
-    display: block;
-}
+  .proposal-footer img {
+      width: 100%;
+      height: auto;
+      display: block;
+  }
+  .attachment-row {
+      gap: 8px;
+  }
+  .attachment-link,
+  .attachment-name {
+      display: inline-block;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: normal;
+  }
 </style>
 
 <div class="container-fluid p-0">
@@ -435,32 +446,32 @@ function _approval_label(?string $status): string
             ];
         }
       ?>
-      <div class="card mt-3">
-        <div class="card-header">
-          <h3 class="card-title">Attachments (PDF)</h3>
-        </div>
-        <div class="card-body">
-          <?php if (empty($attachmentItems)): ?>
-            <p class="text-muted mb-0">No attachments uploaded.</p>
-          <?php else: ?>
-            <?php foreach ($attachmentItems as $item): ?>
-              <div class="d-flex align-items-center justify-content-between mb-2">
-                <div>
-                  <strong><?= h($item['label']) ?>:</strong>
-                  <?php if ($item['exists']): ?>
-                    <a href="<?= h($item['url']) ?>" target="_blank" rel="noopener">
-                      <?= h($item['name']) ?>
-                    </a>
-                  <?php else: ?>
-                    <?= h($item['name']) ?>
-                    <span class="text-danger small ml-2">(missing file)</span>
-                  <?php endif; ?>
+        <div class="card mt-3">
+          <div class="card-header">
+            <h3 class="card-title">Attachments (PDF)</h3>
+          </div>
+          <div class="card-body">
+            <?php if (empty($attachmentItems)): ?>
+              <p class="text-muted mb-0">No attachments uploaded.</p>
+            <?php else: ?>
+              <?php foreach ($attachmentItems as $item): ?>
+                <div class="d-flex align-items-start justify-content-between mb-2 attachment-row">
+                  <div>
+                    <strong><?= h($item['label']) ?>:</strong>
+                    <?php if ($item['exists']): ?>
+                      <a class="attachment-link" href="<?= h($item['url']) ?>" target="_blank" rel="noopener">
+                        <?= h($item['name']) ?>
+                      </a>
+                    <?php else: ?>
+                      <span class="attachment-name"><?= h($item['name']) ?></span>
+                      <span class="text-danger small ml-2">(missing file)</span>
+                    <?php endif; ?>
+                  </div>
                 </div>
-              </div>
-            <?php endforeach; ?>
-          <?php endif; ?>
+              <?php endforeach; ?>
+            <?php endif; ?>
+          </div>
         </div>
-      </div>
     </div>
   </div>
 </div>
