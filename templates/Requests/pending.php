@@ -226,20 +226,20 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                       >Export PDF</a>
                     <?php endif; ?>
 
-                    <?php if ($showActions): ?>
-                      <?= $this->Form->postLink(
-                        'Approve',
-                        ['controller' => 'Requests', 'action' => 'approve', $request->id],
-                        ['class' => 'btn btn-success btn-sm', 'confirm' => 'Approve this request?']
-                      ) ?>
+                      <?php if ($showActions && !$isFullyApproved): ?>
+                        <?= $this->Form->postLink(
+                          'Approve',
+                          ['controller' => 'Requests', 'action' => 'approve', $request->id],
+                          ['class' => 'btn btn-success btn-sm', 'confirm' => 'Approve this request?']
+                        ) ?>
 
-                      <button
-                        type="button"
-                        class="btn btn-warning btn-sm review-btn"
-                        data-request-id="<?= (int)$request->id ?>"
-                        data-request-title="<?= h($request->title ?? '') ?>"
-                      >Review</button>
-                    <?php endif; ?>
+                        <button
+                          type="button"
+                          class="btn btn-warning btn-sm review-btn"
+                          data-request-id="<?= (int)$request->id ?>"
+                          data-request-title="<?= h($request->title ?? '') ?>"
+                        >Review</button>
+                      <?php endif; ?>
                   </div>
                 </td>
               </tr>

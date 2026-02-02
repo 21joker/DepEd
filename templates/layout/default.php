@@ -75,14 +75,18 @@ $cakeDescription = 'SDO ACTIVTITY';
             overflow: hidden;
         }
         .main-sidebar .user-panel .info a {
-            display: -webkit-box;
-            -webkit-box-orient: vertical;
-            -webkit-line-clamp: 2;
-            overflow: hidden;
+            display: block;
+            overflow: visible;
             white-space: normal;
             word-break: break-word;
             line-height: 1.2;
-            max-height: 2.4em;
+        }
+        .main-sidebar .user-panel .info a span {
+            display: block;
+        }
+        .main-sidebar .user-panel .info a span + span {
+            font-size: 11px;
+            opacity: 0.8;
         }
         table.dataTable > thead .sorting:before,
         table.dataTable > thead .sorting_asc:before,
@@ -215,7 +219,12 @@ $cakeDescription = 'SDO ACTIVTITY';
                     ]) ?>
                 </div>
                 <div class="info">
-                    <a href="#" class="d-block"><?= h($authDisplayName ?? ($auth['username'] ?? '')) ?></a>
+                    <a href="#" class="d-block">
+                        <span class="d-block"><?= h($authDisplayName ?? ($auth['username'] ?? '')) ?></span>
+                        <?php if (!empty($authOfficeLine)): ?>
+                            <span class="d-block"><?= h($authOfficeLine) ?></span>
+                        <?php endif; ?>
+                    </a>
                 </div>
             </div>
 
@@ -253,6 +262,24 @@ $cakeDescription = 'SDO ACTIVTITY';
                     <!-- Add icons to the links using the .nav-icon class
                          with font-awesome or any other icon font library -->
                     <li class="nav-item menu-open">
+                        <?php
+                            $isActivityProposal = $controller === 'Requests' && $action === 'add';
+                            $isProjectProposal = $controller === 'Requests' && $action === 'project';
+                            $role = $auth['role'] ?? null;
+                            $showProposalTabs = !in_array($role, ['Administrator', 'Approver', 'Superuser'], true);
+                        ?>
+                        <?php if ($showProposalTabs): ?>
+                            <a href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'add']) ?>"
+                               class="nav-link <?= $isActivityProposal ? 'active' : '' ?>">
+                                <i class="nav-icon fas fa-file-alt"></i>
+                                <p>Activity Proposal</p>
+                            </a>
+                            <a href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'project']) ?>"
+                               class="nav-link <?= $isProjectProposal ? 'active' : '' ?>">
+                                <i class="nav-icon fas fa-file"></i>
+                                <p>Project Proposal</p>
+                            </a>
+                        <?php endif; ?>
                         <?php if (in_array($auth['role'] ?? null, ['Superuser', 'Administrator', 'Approver'], true)): ?>
                         <a href="/usermngt/requests/pending" class="nav-link <?= $isRequestsPending ? 'active' : '' ?>">
                             <i class="nav-icon fas fa-user-friends"></i>

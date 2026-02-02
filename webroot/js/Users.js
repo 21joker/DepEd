@@ -17,6 +17,7 @@ $(function () {
             $('#reset-email').val('');
         } else {
             $('#users-form')[0].reset();
+            $('#id-number-enroll').val('');
             $('#username-display-enroll').val('');
             $('#first-name-enroll').val('');
             $('#middle-initial-enroll').val('');
@@ -26,7 +27,8 @@ $(function () {
             $('#rank-enroll').val('');
             $('#position-enroll').val('');
             $('#email-address-enroll').val('');
-            $('#level-of-governance-enroll').val('');
+            $('#office-enroll').val('');
+            $('#section-unit-enroll').val('');
             $('#role-display-enroll').val('User');
             $('#password-enroll').val('');
             $('#retype-password-enroll').val('');
@@ -54,6 +56,7 @@ $(function () {
                     $('#original-username').val(data.username);
                     $('#password').val('');
                     $('#retype-password').val('');
+                    $('#id-number-manage').val(data.id_number || '');
                     $('#first-name-manage').val(data.first_name || '');
                     $('#middle-initial-manage').val(data.middle_initial || '');
                     $('#last-name-manage').val(data.last_name || '');
@@ -63,7 +66,8 @@ $(function () {
                     $('#position-manage').val(data.position || '');
                     $('#email-address-manage').val(data.email_address || '');
                     $('#reset-email, [name="reset_email"]').val(data.email_address || '');
-                    $('#level-of-governance-manage').val(data.level_of_governance || '');
+                    $('#office-manage').val(data.office || data.level_of_governance || '');
+                    $('#section-unit-manage').val(data.section_unit || '');
                     $('#role-manage').val(data.role);
                     $('#id').val(data.id);
                     $('#manage-password-fields').hide();
@@ -102,6 +106,7 @@ $(function () {
                     $('#original-username').val(data.username);
                     $('#password').val('');
                     $('#retype-password').val('');
+                    $('#id-number-manage').val(data.id_number || '');
                     $('#first-name-manage').val(data.first_name || '');
                     $('#middle-initial-manage').val(data.middle_initial || '');
                     $('#last-name-manage').val(data.last_name || '');
@@ -111,7 +116,8 @@ $(function () {
                     $('#position-manage').val(data.position || '');
                     $('#email-address-manage').val(data.email_address || '');
                     $('#reset-email, [name="reset_email"]').val(data.email_address || '');
-                    $('#level-of-governance-manage').val(data.level_of_governance || '');
+                    $('#office-manage').val(data.office || data.level_of_governance || '');
+                    $('#section-unit-manage').val(data.section_unit || '');
                     $('#role-manage').val(data.role);
                     $('#id').val(data.id);
                     $('#manage-password-fields').show();
@@ -161,7 +167,8 @@ $(function () {
                 }
                 $('#view-position').text(data.position || '—');
                 $('#view-email').text(data.email_address || '—');
-                $('#view-level').text(data.level_of_governance || '—');
+                $('#view-office').text(data.office || data.level_of_governance || '—');
+                $('#view-section-unit').text(data.section_unit || '—');
                 $('#view-role').text(data.role || '—');
                 $('#view-created').text(data.created || '—');
                 $('#view-modified').text(data.modified || '—');
@@ -216,6 +223,7 @@ $(function () {
         }
         var fd = new FormData(this);
         var fieldMap = isEnroll ? {
+            id_number: '#id-number-enroll',
             first_name: '#first-name-enroll',
             middle_initial: '#middle-initial-enroll',
             last_name: '#last-name-enroll',
@@ -224,10 +232,12 @@ $(function () {
             rank: '#rank-enroll',
             position: '#position-enroll',
             email_address: '#email-address-enroll',
-            level_of_governance: '#level-of-governance-enroll',
+            office: '#office-enroll',
+            section_unit: '#section-unit-enroll',
             role: '#role',
             username: '#username'
         } : {
+            id_number: '#id-number-manage',
             first_name: '#first-name-manage',
             middle_initial: '#middle-initial-manage',
             last_name: '#last-name-manage',
@@ -236,7 +246,8 @@ $(function () {
             rank: '#rank-manage',
             position: '#position-manage',
             email_address: '#email-address-manage',
-            level_of_governance: '#level-of-governance-manage',
+            office: '#office-manage',
+            section_unit: '#section-unit-manage',
             role: '#role-manage',
             username: '#username-manage'
         };
@@ -275,7 +286,8 @@ $(function () {
                     $('#rank-enroll').val('');
                     $('#position-enroll').val('');
                     $('#email-address-enroll').val('');
-                    $('#level-of-governance-enroll').val('');
+                    $('#office-enroll').val('');
+                    $('#section-unit-enroll').val('');
                     $('#role-display-enroll').val('User');
                     $('#password-enroll').val('');
                     $('#retype-password-enroll').val('');
@@ -327,6 +339,7 @@ $(function () {
         if (form) {
             form.reset();
         }
+        $('#id-number-enroll').val('');
         $('#username-display-enroll').val('');
         $('#first-name-enroll').val('');
         $('#middle-initial-enroll').val('');
@@ -336,7 +349,8 @@ $(function () {
         $('#rank-enroll').val('');
         $('#position-enroll').val('');
         $('#email-address-enroll').val('');
-        $('#level-of-governance-enroll').val('');
+        $('#office-enroll').val('');
+        $('#section-unit-enroll').val('');
         $('#role-display-enroll').val('User');
         $('#password-enroll').val('');
         $('#retype-password-enroll').val('');
@@ -378,7 +392,7 @@ function getUsers() {
                 }
             },
             {data: "email_address"},
-            {data: "level_of_governance"},
+            {data: "office"},
             {
                 data: null,
                 render: function (data) {
@@ -410,6 +424,3 @@ function getUsers() {
         }
     });
 }
-
-
-

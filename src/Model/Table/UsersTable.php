@@ -134,9 +134,14 @@ class UsersTable extends Table
             ->allowEmptyString('email_address');
 
         $validator
-            ->scalar('level_of_governance')
-            ->maxLength('level_of_governance', 50)
-            ->allowEmptyString('level_of_governance');
+            ->scalar('office')
+            ->maxLength('office', 50)
+            ->allowEmptyString('office');
+
+        $validator
+            ->scalar('section_unit')
+            ->maxLength('section_unit', 100)
+            ->allowEmptyString('section_unit');
 
         return $validator;
     }

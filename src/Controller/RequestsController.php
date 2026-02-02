@@ -102,7 +102,18 @@ class RequestsController extends AppController
 
             foreach ($detailsMap as $label => $key) {
                 $rawValue = $formData[$key] ?? '';
-                if (is_array($rawValue)) {
+                if ($key === 'source_of_fund' && is_array($rawValue)) {
+                    $pairs = [];
+                    foreach ($rawValue as $fund => $amount) {
+                        $fundLabel = trim((string)$fund);
+                        $amountValue = trim((string)$amount);
+                        if ($fundLabel === '' || $amountValue === '') {
+                            continue;
+                        }
+                        $pairs[] = $fundLabel . ': ' . $amountValue;
+                    }
+                    $value = trim(implode('; ', $pairs));
+                } elseif (is_array($rawValue)) {
                     $value = trim(implode(', ', array_filter(array_map('trim', $rawValue), 'strlen')));
                 } else {
                     $value = trim((string)$rawValue);
@@ -112,10 +123,16 @@ class RequestsController extends AppController
                 }
             }
 
-            $scheduleFrom = trim((string)($formData['activity_schedule_from'] ?? ''));
-            $scheduleTo = trim((string)($formData['activity_schedule_to'] ?? ''));
-            if ($scheduleFrom !== '' || $scheduleTo !== '') {
-                $detailsLines[] = 'Activity Schedule: ' . trim($scheduleFrom . ' - ' . $scheduleTo, ' -');
+            $scheduleDates = trim((string)($formData['activity_schedule_dates'] ?? ''));
+            $scheduleTimeFrom = trim((string)($formData['activity_schedule_time_from'] ?? ''));
+            $scheduleTimeTo = trim((string)($formData['activity_schedule_time_to'] ?? ''));
+            if ($scheduleDates !== '' || $scheduleTimeFrom !== '' || $scheduleTimeTo !== '') {
+                $timeLabel = trim($scheduleTimeFrom . ' - ' . $scheduleTimeTo, ' -');
+                $scheduleLabel = $scheduleDates;
+                if ($timeLabel !== '') {
+                    $scheduleLabel = trim($scheduleLabel . ' | ' . $timeLabel, ' |');
+                }
+                $detailsLines[] = 'Activity Schedule: ' . $scheduleLabel;
             }
             foreach ($attachmentUploads as $label => $upload) {
                 if (!empty($upload['filename'])) {
@@ -341,6 +358,11 @@ class RequestsController extends AppController
         ));
     }
 
+    public function project()
+    {
+        $this->viewBuilder()->setLayout($this->Auth->user() ? 'default' : 'login');
+    }
+
     public function edit($id = null)
     {
         $this->viewBuilder()->setLayout($this->Auth->user() ? 'default' : 'login');
@@ -436,7 +458,18 @@ class RequestsController extends AppController
 
             foreach ($detailsMap as $label => $key) {
                 $rawValue = $formData[$key] ?? '';
-                if (is_array($rawValue)) {
+                if ($key === 'source_of_fund' && is_array($rawValue)) {
+                    $pairs = [];
+                    foreach ($rawValue as $fund => $amount) {
+                        $fundLabel = trim((string)$fund);
+                        $amountValue = trim((string)$amount);
+                        if ($fundLabel === '' || $amountValue === '') {
+                            continue;
+                        }
+                        $pairs[] = $fundLabel . ': ' . $amountValue;
+                    }
+                    $value = trim(implode('; ', $pairs));
+                } elseif (is_array($rawValue)) {
                     $value = trim(implode(', ', array_filter(array_map('trim', $rawValue), 'strlen')));
                 } else {
                     $value = trim((string)$rawValue);
@@ -446,10 +479,16 @@ class RequestsController extends AppController
                 }
             }
 
-            $scheduleFrom = trim((string)($formData['activity_schedule_from'] ?? ''));
-            $scheduleTo = trim((string)($formData['activity_schedule_to'] ?? ''));
-            if ($scheduleFrom !== '' || $scheduleTo !== '') {
-                $detailsLines[] = 'Activity Schedule: ' . trim($scheduleFrom . ' - ' . $scheduleTo, ' -');
+            $scheduleDates = trim((string)($formData['activity_schedule_dates'] ?? ''));
+            $scheduleTimeFrom = trim((string)($formData['activity_schedule_time_from'] ?? ''));
+            $scheduleTimeTo = trim((string)($formData['activity_schedule_time_to'] ?? ''));
+            if ($scheduleDates !== '' || $scheduleTimeFrom !== '' || $scheduleTimeTo !== '') {
+                $timeLabel = trim($scheduleTimeFrom . ' - ' . $scheduleTimeTo, ' -');
+                $scheduleLabel = $scheduleDates;
+                if ($timeLabel !== '') {
+                    $scheduleLabel = trim($scheduleLabel . ' | ' . $timeLabel, ' |');
+                }
+                $detailsLines[] = 'Activity Schedule: ' . $scheduleLabel;
             }
             $attachmentLabels = [
                 'Attachment SUB-ARO',
@@ -573,13 +612,27 @@ class RequestsController extends AppController
 
         $schedule = $fields['Activity Schedule'] ?? '';
         if ($schedule !== '') {
-            $parts = array_map('trim', explode(' - ', $schedule));
-            $requestEntity->set('activity_schedule_from', $parts[0] ?? '');
-            $requestEntity->set('activity_schedule_to', $parts[1] ?? '');
+            $datesPart = $schedule;
+            $timeFrom = '';
+            $timeTo = '';
+            if (strpos($schedule, '|') !== false) {
+                $parts = array_map('trim', explode('|', $schedule, 2));
+                $datesPart = $parts[0] ?? '';
+                $timePart = $parts[1] ?? '';
+                $timePart = preg_replace('/^Time\\s*:?\\s*/i', '', (string)$timePart);
+                $timePieces = array_map('trim', explode('-', $timePart, 2));
+                $timeFrom = $timePieces[0] ?? '';
+                $timeTo = $timePieces[1] ?? '';
+            } elseif (strpos($schedule, ' - ') !== false) {
+                $datesPart = $schedule;
+            }
+            $requestEntity->set('activity_schedule_dates', $datesPart);
+            $requestEntity->set('activity_schedule_time_from', $timeFrom);
+            $requestEntity->set('activity_schedule_time_to', $timeTo);
         }
 
         $funds = $fields['Source of Fund'] ?? '';
-        $selectedFunds = array_filter(array_map('trim', explode(',', $funds)), 'strlen');
+        $fundAmounts = $this->parseSourceOfFundAmounts($funds);
 
         $requestEntity->set('expenditure_nature', array_column($matrix, 'nature'));
         $requestEntity->set('expenditure_no', array_column($matrix, 'no'));
@@ -658,7 +711,7 @@ class RequestsController extends AppController
             'approvalStatuses',
             'approvalRemarks',
             'approvalMeta',
-            'selectedFunds',
+            'fundAmounts',
             'userRequests',
             'requestSummaries',
             'showForm',
@@ -1576,8 +1629,10 @@ class RequestsController extends AppController
             'Attachment AR',
             'Attachment AC',
         ];
+        $labelLookup = array_fill_keys($knownLabels, true);
         $lines = preg_split("/\\r\\n|\\n|\\r/", $detailsText);
         $inMatrix = false;
+        $currentLabel = null;
         foreach ($lines as $line) {
             $trimLine = trim((string)$line);
             if ($trimLine === '') {
@@ -1585,6 +1640,7 @@ class RequestsController extends AppController
             }
             if (stripos($trimLine, 'Expenditure Matrix:') === 0) {
                 $inMatrix = true;
+                $currentLabel = null;
                 continue;
             }
             if ($inMatrix) {
@@ -1594,17 +1650,65 @@ class RequestsController extends AppController
                 $inMatrix = false;
             }
 
+            $matchedLabel = null;
             foreach ($knownLabels as $label) {
                 $prefix = $label . ':';
                 if (stripos($trimLine, $prefix) === 0) {
+                    $matchedLabel = $label;
                     $value = ltrim(substr($trimLine, strlen($prefix)));
                     $fields[$label] = $value;
+                    $currentLabel = $label;
+                    break;
+                }
+            }
+
+            if ($matchedLabel === null && $currentLabel !== null && isset($labelLookup[$currentLabel])) {
+                $existing = (string)($fields[$currentLabel] ?? '');
+                $fields[$currentLabel] = $existing === '' ? $trimLine : ($existing . "\n" . $trimLine);
+            }
+        }
+
+        return $fields;
+    }
+
+    private function parseSourceOfFundAmounts(?string $funds): array
+    {
+        $options = ['OSDS', 'GASS-MOOE', 'CMF', 'PSF'];
+        $amounts = array_fill_keys($options, '');
+        $funds = trim((string)$funds);
+        if ($funds === '') {
+            return $amounts;
+        }
+
+        $parts = preg_split('/[;\\n]+/', $funds);
+        if (count($parts) === 1) {
+            $parts = preg_split('/,/', $funds);
+        }
+        foreach ($parts as $part) {
+            $part = trim((string)$part);
+            if ($part === '') {
+                continue;
+            }
+            $label = '';
+            $value = '';
+            if (strpos($part, ':') !== false) {
+                [$label, $value] = explode(':', $part, 2);
+            } elseif (strpos($part, '=') !== false) {
+                [$label, $value] = explode('=', $part, 2);
+            } else {
+                continue;
+            }
+            $label = strtoupper(trim($label));
+            $value = trim((string)$value);
+            foreach ($options as $option) {
+                if (strtoupper($option) === $label) {
+                    $amounts[$option] = $value;
                     break;
                 }
             }
         }
 
-        return $fields;
+        return $amounts;
     }
 
     private function prepareAttachmentUploads(array $formData): array

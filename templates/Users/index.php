@@ -58,7 +58,7 @@
                         <th>ID</th>
                         <th>Full Name</th>
                         <th>Email Address</th>
-                        <th>Level of Governance</th>
+                        <th>Office</th>
                         <th>Edit Account</th>
                     <?php endif; ?>
                 </tr>
@@ -84,6 +84,13 @@
             <div class="modal-body">
                 <?= $this->Form->create($user,['id'=>'users-form'])?>
                 <?php if ($isEnroll): ?>
+                    <label>ID Number</label>
+                    <?= $this->Form->control('id_number', [
+                        'class' => 'form-control',
+                        'placeholder' => 'ID Number',
+                        'label' => false,
+                        'id' => 'id-number-enroll'
+                    ]) ?>
                     <label>Username</label>
                     <?= $this->Form->control('username_display', [
                         'class' => 'form-control',
@@ -148,16 +155,23 @@
                         'type' => 'email',
                         'id' => 'email-address-enroll'
                     ]) ?>
-                    <label>Level of governance</label>
-                    <?= $this->Form->control('level_of_governance', [
+                    <label>Office</label>
+                    <?= $this->Form->control('office', [
                         'class' => 'form-control',
                         'label' => false,
-                        'id' => 'level-of-governance-enroll',
+                        'id' => 'office-enroll',
                         'options' => [
                             'SGOD' => 'SGOD',
                             'CID' => 'CID',
                             'OSDS'=> 'OSDS',
                         ]
+                    ]) ?>
+                    <label>Section/Unit</label>
+                    <?= $this->Form->control('section_unit', [
+                        'class' => 'form-control',
+                        'placeholder' => 'Section/Unit',
+                        'label' => false,
+                        'id' => 'section-unit-enroll'
                     ]) ?>
                     <label>Role</label>
                     <?= $this->Form->control('role_display', [
@@ -196,6 +210,13 @@
                         'id' => 'role'
                     ]) ?>
                 <?php else: ?>
+                    <label>ID Number</label>
+                    <?= $this->Form->control('id_number', [
+                        'class' => 'form-control',
+                        'placeholder' => 'ID Number',
+                        'label' => false,
+                        'id' => 'id-number-manage'
+                    ]) ?>
                     <label>Username</label>
                     <?= $this->Form->control('username', [
                         'class' => 'form-control',
@@ -260,16 +281,23 @@
                         'type' => 'email',
                         'id' => 'email-address-manage'
                     ]) ?>
-                    <label>Level of governance</label>
-                    <?= $this->Form->control('level_of_governance', [
+                    <label>Office</label>
+                    <?= $this->Form->control('office', [
                         'class' => 'form-control',
                         'label' => false,
-                        'id' => 'level-of-governance-manage',
+                        'id' => 'office-manage',
                         'options' => [
                             'SGOD' => 'SGOD',
                             'CID' => 'CID',
                             'OSDS' => 'OSDS',
                         ]
+                    ]) ?>
+                    <label>Section/Unit</label>
+                    <?= $this->Form->control('section_unit', [
+                        'class' => 'form-control',
+                        'placeholder' => 'Section/Unit',
+                        'label' => false,
+                        'id' => 'section-unit-manage'
                     ]) ?>
                     <label>Role</label>
                     <?= $this->Form->control('role', [
@@ -330,7 +358,8 @@
                 <div class="mb-2"><strong>Rank:</strong> <span id="view-rank">—</span></div>
                 <div class="mb-2"><strong>Position:</strong> <span id="view-position">—</span></div>
                 <div class="mb-2"><strong>Email Address:</strong> <span id="view-email">—</span></div>
-                <div class="mb-2"><strong>Level of Governance:</strong> <span id="view-level">—</span></div>
+                <div class="mb-2"><strong>Office:</strong> <span id="view-office">—</span></div>
+                <div class="mb-2"><strong>Section/Unit:</strong> <span id="view-section-unit">—</span></div>
                 <div class="mb-2"><strong>Role:</strong> <span id="view-role">—</span></div>
                 <div class="mb-2"><strong>Created:</strong> <span id="view-created">—</span></div>
                 <div class="mb-2"><strong>Modified:</strong> <span id="view-modified">—</span></div>

@@ -80,6 +80,7 @@ class AppController extends Controller
         $this->Auth->allow(['login','register','forgotPassword']);
         $auth = $this->Auth->user();
         $authDisplayName = null;
+        $authOfficeLine = null;
         if (!empty($auth)) {
             $authDisplayName = $auth['username'] ?? null;
             if (!empty($auth['id'])) {
@@ -107,8 +108,16 @@ class AppController extends Controller
 
                 try {
                     $this->loadModel('Users');
+                    $schema = $this->Users->getSchema();
+                    $columns = ['first_name', 'middle_initial', 'last_name', 'suffix', 'degree'];
+                    if ($schema->hasColumn('office')) {
+                        $columns[] = 'office';
+                    }
+                    if ($schema->hasColumn('section_unit')) {
+                        $columns[] = 'section_unit';
+                    }
                     $userRecord = $this->Users->find()
-                        ->select(['first_name', 'middle_initial', 'last_name', 'suffix', 'degree'])
+                        ->select($columns)
                         ->where(['id' => $auth['id']])
                         ->first();
                 } catch (\Throwable $e) {
@@ -139,10 +148,20 @@ class AppController extends Controller
                             $authDisplayName = $base !== '' ? $base . ', ' . $degree : $degree;
                         }
                     }
+
+                    $office = trim((string)($userRecord->office ?? ($auth['office'] ?? '')));
+                    $section = trim((string)($userRecord->section_unit ?? ($auth['section_unit'] ?? '')));
+                    $officeParts = array_filter([$office, $section], function ($value) {
+                        return $value !== '';
+                    });
+                    if (!empty($officeParts)) {
+                        $officeLabel = implode(' - ', $officeParts);
+                        $authOfficeLine = $officeLabel;
+                    }
                 }
             }
         }
 
-        $this->set(compact('auth', 'authDisplayName'));
+        $this->set(compact('auth', 'authDisplayName', 'authOfficeLine'));
     }
 }

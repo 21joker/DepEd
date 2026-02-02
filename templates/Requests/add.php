@@ -50,6 +50,8 @@
     padding: 0;
     background: transparent;
     box-shadow: none;
+    font-size: 14px;
+    line-height: 1.4;
 }
 .proposal-table textarea.form-control {
     resize: vertical;
@@ -116,6 +118,14 @@
     display: block;
 }
 </style>
+
+<?php
+    $this->Html->css('/plugins/tempusdominus-bootstrap-4/css/tempusdominus-bootstrap-4.min.css', ['block' => 'css']);
+    $this->Html->script([
+        '/plugins/moment/moment.min.js',
+        '/plugins/tempusdominus-bootstrap-4/js/tempusdominus-bootstrap-4.min.js',
+    ], ['block' => 'scriptBottom']);
+?>
 
 <div class="col-12">
     <div class="card">
@@ -387,32 +397,40 @@
                     </tr>
                     <tr>
                         <td class="label">Proponent/s:</td>
-                        <td colspan="2"><?= $this->Form->text('proponents', ['class' => 'form-control']) ?></td>
+                        <td colspan="2"><?= $this->Form->text('proponents', [
+                            'class' => 'form-control',
+                            'value' => $requestEntity->proponents ?? ($authDisplayName ?? ($auth['username'] ?? '')),
+                        ]) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Activity Schedule:</td>
                         <td colspan="2">
-                            <div class="form-row align-items-center">
-                                <div class="col-auto pr-2">
-                                    <label class="mb-0 font-weight-bold">From:</label>
-                                </div>
-                                <div class="col">
-                                    <?= $this->Form->control('activity_schedule_from', [
-                                        'type' => 'date',
+                            <div class="form-row">
+                                <div class="col-md-8">
+                                    <div id="activity-calendar" class="border"></div>
+                                    <?= $this->Form->control('activity_schedule_dates', [
+                                        'type' => 'text',
                                         'label' => false,
-                                        'class' => 'form-control',
-                                        'id' => 'activity-schedule-from'
+                                        'class' => 'form-control mt-2',
+                                        'id' => 'activity-schedule-dates',
+                                        'readonly' => true,
+                                        'placeholder' => 'Selected dates'
                                     ]) ?>
                                 </div>
-                                <div class="col-auto px-2">
-                                    <label class="mb-0 font-weight-bold">To:</label>
-                                </div>
-                                <div class="col">
-                                    <?= $this->Form->control('activity_schedule_to', [
-                                        'type' => 'date',
+                                <div class="col-md-4">
+                                    <label class="mb-1 font-weight-bold">Time From</label>
+                                    <?= $this->Form->control('activity_schedule_time_from', [
+                                        'type' => 'time',
                                         'label' => false,
                                         'class' => 'form-control',
-                                        'id' => 'activity-schedule-to'
+                                        'id' => 'activity-schedule-time-from'
+                                    ]) ?>
+                                    <label class="mt-2 mb-1 font-weight-bold">Time To</label>
+                                    <?= $this->Form->control('activity_schedule_time_to', [
+                                        'type' => 'time',
+                                        'label' => false,
+                                        'class' => 'form-control',
+                                        'id' => 'activity-schedule-time-to'
                                     ]) ?>
                                 </div>
                             </div>
@@ -482,29 +500,40 @@
                     <tr>
                         <td class="label">Source of Fund:</td>
                         <td>
-                            <div class="d-flex flex-wrap">
-                                <?php
-                                    $fundOptions = ['OSDS', 'GASS-MOOE', 'CMF', 'PSF'];
-                                    foreach ($fundOptions as $option):
-                                        $id = 'source-of-fund-' . strtolower(str_replace([' ', '-'], '', $option));
-                                ?>
-                                    <?php
-                                        $selectedFunds = $selectedFunds ?? [];
-                                        $isChecked = in_array($option, $selectedFunds, true);
-                                    ?>
-                                    <div class="custom-control custom-checkbox mr-3 mb-2">
-                                        <input
-                                            type="checkbox"
-                                            class="custom-control-input"
-                                            id="<?= h($id) ?>"
-                                            name="source_of_fund[]"
-                                            value="<?= h($option) ?>"
-                                            <?= $isChecked ? 'checked' : '' ?>
-                                        >
-                                        <label class="custom-control-label" for="<?= h($id) ?>"><?= h($option) ?></label>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
+                            <?php
+                                $fundOptions = ['OSDS', 'GASS-MOOE', 'CMF', 'PSF'];
+                                $fundAmounts = $fundAmounts ?? [];
+                            ?>
+                            <table class="table budget-table mb-0" id="source-of-fund-table">
+                                <thead>
+                                    <tr>
+                                        <?php foreach ($fundOptions as $option): ?>
+                                            <th class="text-center"><?= h($option) ?></th>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <?php foreach ($fundOptions as $option): ?>
+                                            <?php
+                                                $id = 'source-of-fund-' . strtolower(str_replace([' ', '-'], '', $option));
+                                                $value = isset($fundAmounts[$option]) ? (string)$fundAmounts[$option] : '';
+                                            ?>
+                                            <td class="text-center">
+                                                <input
+                                                    type="text"
+                                                    id="<?= h($id) ?>"
+                                                    name="source_of_fund[<?= h($option) ?>]"
+                                                    value="<?= h($value) ?>"
+                                                    class="form-control peso-format text-center"
+                                                    inputmode="decimal"
+                                                    placeholder="0.00"
+                                                >
+                                            </td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </td>
                     </tr>
                     <tr>
@@ -520,12 +549,33 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr>
-                                        <td><?= $this->Form->text('expenditure_nature.0', ['class' => 'form-control']) ?></td>
-                                        <td><?= $this->Form->text('expenditure_no.0', ['class' => 'form-control matrix-no']) ?></td>
-                                        <td><?= $this->Form->text('expenditure_amount.0', ['class' => 'form-control peso-format matrix-amount']) ?></td>
-                                        <td><?= $this->Form->text('expenditure_total.0', ['class' => 'form-control peso-format matrix-total']) ?></td>
-                                    </tr>
+                                    <?php
+                                        $natureList = (array)($requestEntity->get('expenditure_nature') ?? []);
+                                        $countList = (array)($requestEntity->get('expenditure_no') ?? []);
+                                        $amountList = (array)($requestEntity->get('expenditure_amount') ?? []);
+                                        $totalList = (array)($requestEntity->get('expenditure_total') ?? []);
+                                        $rowCount = max(count($natureList), count($countList), count($amountList), count($totalList), 1);
+                                    ?>
+                                    <?php for ($i = 0; $i < $rowCount; $i++): ?>
+                                        <tr>
+                                            <td><?= $this->Form->text("expenditure_nature.$i", [
+                                                'class' => 'form-control',
+                                                'value' => $natureList[$i] ?? '',
+                                            ]) ?></td>
+                                            <td><?= $this->Form->text("expenditure_no.$i", [
+                                                'class' => 'form-control matrix-no',
+                                                'value' => $countList[$i] ?? '',
+                                            ]) ?></td>
+                                            <td><?= $this->Form->text("expenditure_amount.$i", [
+                                                'class' => 'form-control peso-format matrix-amount',
+                                                'value' => $amountList[$i] ?? '',
+                                            ]) ?></td>
+                                            <td><?= $this->Form->text("expenditure_total.$i", [
+                                                'class' => 'form-control peso-format matrix-total',
+                                                'value' => $totalList[$i] ?? '',
+                                            ]) ?></td>
+                                        </tr>
+                                    <?php endfor; ?>
                                 </tbody>
                             </table>
                             <div class="text-right mt-2">
@@ -617,22 +667,37 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var scheduleFrom = document.getElementById('activity-schedule-from');
-    var scheduleTo = document.getElementById('activity-schedule-to');
-    if (scheduleFrom && scheduleTo) {
-        var syncScheduleRange = function () {
-            if (scheduleFrom.value) {
-                scheduleTo.min = scheduleFrom.value;
-                if (scheduleTo.value && scheduleTo.value < scheduleFrom.value) {
-                    scheduleTo.value = scheduleFrom.value;
-                }
-            } else {
-                scheduleTo.min = '';
+    var scheduleDatesInput = document.getElementById('activity-schedule-dates');
+    if (window.jQuery && $.fn.datetimepicker && $('#activity-calendar').length) {
+        var $calendar = $('#activity-calendar');
+        $calendar.datetimepicker({
+            format: 'L',
+            inline: true,
+            allowMultidate: true,
+            multidateSeparator: ', '
+        });
+
+        var updateScheduleDates = function () {
+            if (!scheduleDatesInput) {
+                return;
             }
+            var value = $calendar.data('date') || '';
+            scheduleDatesInput.value = value;
         };
-        scheduleFrom.addEventListener('change', syncScheduleRange);
-        scheduleTo.addEventListener('change', syncScheduleRange);
-        syncScheduleRange();
+
+        $calendar.on('change.datetimepicker', updateScheduleDates);
+
+        if (scheduleDatesInput && scheduleDatesInput.value.trim() !== '') {
+            var seedDates = scheduleDatesInput.value.split(',').map(function (item) {
+                return item.trim();
+            }).filter(function (item) { return item !== ''; });
+            var picker = $calendar.data('datetimepicker');
+            if (picker && seedDates.length) {
+                picker.setMultiDate(seedDates);
+            }
+        }
+
+        updateScheduleDates();
     }
 
     var toggleButton = document.getElementById('toggle-proposal-form');
@@ -790,8 +855,20 @@ document.addEventListener('DOMContentLoaded', function () {
             grandInput.value = total ? formatPeso(total.toFixed(2)) : '';
         }
         if (budgetInput) {
-            budgetInput.value = total ? formatPeso(total.toFixed(2)) : '';
+            var sourceTotal = getSourceFundTotal();
+            budgetInput.value = sourceTotal ? formatPeso(sourceTotal.toFixed(2)) : '';
         }
+    }
+
+    function getSourceFundTotal() {
+        var sum = 0;
+        document.querySelectorAll('#source-of-fund-table input[type="text"]').forEach(function (input) {
+            var value = Number(normalizeNumber(input.value || ''));
+            if (!Number.isNaN(value)) {
+                sum += value;
+            }
+        });
+        return sum;
     }
 
     function handleFocus(event) {
@@ -834,6 +911,8 @@ document.addEventListener('DOMContentLoaded', function () {
             updateMatrixRowTotal(event.target.closest('tr'));
             updateGrandTotal();
         } else if (event.target.classList.contains('matrix-total')) {
+            updateGrandTotal();
+        } else if (event.target.closest && event.target.closest('#source-of-fund-table')) {
             updateGrandTotal();
         }
     });

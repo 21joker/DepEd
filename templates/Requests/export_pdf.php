@@ -13,15 +13,11 @@ $proponentName = $proponentName ?? '';
 $proponentDegree = $proponentDegree ?? '';
 $proponentPosition = $proponentPosition ?? '';
 
-$detailsSource = $requestEntity->details;
-if ($detailsSource === null || trim((string)$detailsSource) === '') {
-    $detailsSource = $requestEntity->message ?? '';
-}
-$detailsText = trim((string)$detailsSource);
+$detailsText = trim((string)($requestEntity->details ?? $requestEntity->message ?? ''));
 $fields = [];
 $matrix = [];
 $inMatrix = false;
-$currentLabel = null;
+
 $knownLabels = [
     'PMIS Activity Code',
     'Title of Activity',
@@ -41,25 +37,24 @@ $knownLabels = [
     'Attachment AR',
     'Attachment AC',
 ];
+$labelLookup = array_fill_keys($knownLabels, true);
+$currentLabel = null;
 
 if ($detailsText !== '') {
-    $lines = preg_split("/\\r\\n|\\n|\\r/", $detailsText);
+    $lines = preg_split("/\\r?\\n/", $detailsText);
     foreach ($lines as $line) {
-        $rawLine = (string)$line;
-        $trimLine = trim($rawLine);
-        if ($trimLine === '') {
-            if ($currentLabel !== null && !$inMatrix) {
-                $fields[$currentLabel] = rtrim($fields[$currentLabel] . "\n");
-            }
+        $line = trim((string)$line);
+        if ($line === '') {
             continue;
         }
-        if (stripos($trimLine, 'Expenditure Matrix:') === 0) {
+        if (stripos($line, 'Expenditure Matrix:') === 0) {
             $inMatrix = true;
+            $currentLabel = null;
             continue;
         }
         if ($inMatrix) {
-            if (strpos($trimLine, '- ') === 0) {
-                $row = substr($trimLine, 2);
+            if (strpos($line, '- ') === 0) {
+                $row = substr($line, 2);
                 $parts = array_map('trim', explode('|', $row));
                 $matrix[] = [
                     'nature' => $parts[0] ?? '',
@@ -75,20 +70,18 @@ if ($detailsText !== '') {
         $matchedLabel = null;
         foreach ($knownLabels as $label) {
             $prefix = $label . ':';
-            if (stripos($trimLine, $prefix) === 0) {
+            if (stripos($line, $prefix) === 0) {
                 $matchedLabel = $label;
-                $value = ltrim(substr($trimLine, strlen($prefix)));
+                $value = trim(substr($line, strlen($prefix)));
                 $fields[$label] = $value;
                 $currentLabel = $label;
                 break;
             }
         }
-        if ($matchedLabel !== null) {
-            continue;
-        }
 
-        if ($currentLabel !== null) {
-            $fields[$currentLabel] = rtrim($fields[$currentLabel] . "\n" . $rawLine);
+        if ($matchedLabel === null && $currentLabel !== null && isset($labelLookup[$currentLabel])) {
+            $existing = (string)($fields[$currentLabel] ?? '');
+            $fields[$currentLabel] = $existing === '' ? $line : ($existing . "\n" . $line);
         }
     }
 }
@@ -196,12 +189,6 @@ body {
     border: 1px solid #2b2b2b;
     padding: 6px;
     vertical-align: top;
-    height: auto;
-    overflow: visible;
-    white-space: normal;
-}
-.proposal-table {
-    table-layout: auto;
 }
 .proposal-table th.section {
     background: #e6e6e6;
@@ -216,12 +203,6 @@ body {
 .proposal-value {
     min-height: 18px;
     white-space: pre-wrap;
-    word-break: break-word;
-    overflow-wrap: anywhere;
-    display: block;
-    width: 100%;
-    max-height: none;
-    height: auto;
 }
 .budget-table {
     width: 100%;
@@ -432,7 +413,7 @@ body {
                         <div class="name">MARFIL A. DULAY LPT</div>
                         <div>Planning Officer III</div>
                     </div>
-                    <div class="signature-block" style="margin-top: 18px;">
+                    <div class="signature-block" style="margin-top: 18px ;">
                         <div class="name">SHIRLYN R. MACASPAC PhD</div>
                         <div>SMM&E</div>
                     </div>

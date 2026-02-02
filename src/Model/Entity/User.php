@@ -13,6 +13,7 @@ use Cake\ORM\Entity;
  * @property string $username
  * @property string $password
  * @property string $role
+ * @property string|null $id_number
  * @property string|null $first_name
  * @property string|null $middle_initial
  * @property string|null $last_name
@@ -21,7 +22,8 @@ use Cake\ORM\Entity;
  * @property string|null $rank
  * @property string|null $position
  * @property string|null $email_address
- * @property string|null $level_of_governance
+ * @property string|null $office
+ * @property string|null $section_unit
  * @property \Cake\I18n\FrozenTime $created
  * @property \Cake\I18n\FrozenTime $modified
  *
@@ -42,6 +44,7 @@ class User extends Entity
         'username' => true,
         'password' => true,
         'role' => true,
+        'id_number' => true,
         'first_name' => true,
         'middle_initial' => true,
         'last_name' => true,
@@ -50,7 +53,8 @@ class User extends Entity
         'rank' => true,
         'position' => true,
         'email_address' => true,
-        'level_of_governance' => true,
+        'office' => true,
+        'section_unit' => true,
         'created' => true,
         'modified' => true,
         'student' => true,

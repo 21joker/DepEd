@@ -82,7 +82,7 @@ class UsersController extends AppController
         if ($this->request->is('post')) {
             $data = $this->request->getData();
             $schema = $this->Users->getSchema();
-            foreach (['first_name','middle_initial','last_name','suffix','degree','rank','position','email_address','level_of_governance'] as $field) {
+            foreach (['id_number','first_name','middle_initial','last_name','suffix','degree','rank','position','email_address','office','section_unit'] as $field) {
                 if (!$schema->hasColumn($field)) {
                     unset($data[$field]);
                 }
@@ -176,7 +176,7 @@ class UsersController extends AppController
                 }
                 unset($data['reset_mode'], $data['reset_email']);
                 $schema = $this->Users->getSchema();
-                foreach (['first_name','middle_initial','last_name','suffix','degree','rank','position','email_address','level_of_governance'] as $field) {
+                foreach (['id_number','first_name','middle_initial','last_name','suffix','degree','rank','position','email_address','office','section_unit'] as $field) {
                     if (!$schema->hasColumn($field)) {
                         unset($data[$field]);
                     }
@@ -189,6 +189,7 @@ class UsersController extends AppController
                     $updateFields = [
                         'username',
                         'role',
+                        'id_number',
                         'first_name',
                         'middle_initial',
                         'last_name',
@@ -197,7 +198,8 @@ class UsersController extends AppController
                         'rank',
                         'position',
                         'email_address',
-                        'level_of_governance',
+                        'office',
+                        'section_unit',
                     ];
                     $updateData = [];
                     foreach ($updateFields as $field) {
@@ -520,6 +522,7 @@ class UsersController extends AppController
             'role',
             'created',
             'modified',
+            'id_number',
             'first_name',
             'middle_initial',
             'last_name',
@@ -528,7 +531,8 @@ class UsersController extends AppController
             'rank',
             'position',
             'email_address',
-            'level_of_governance',
+            'office',
+            'section_unit',
         ];
         $select = [];
         foreach ($fields as $field) {

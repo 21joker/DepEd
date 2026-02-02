@@ -1,0 +1,10 @@
+<div class="col-12">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title mb-0">Project Proposal</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-0">Coming soon.</p>
+        </div>
+    </div>
+</div>
