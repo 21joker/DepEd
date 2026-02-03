@@ -78,7 +78,9 @@ class LogsController extends AppController
             });
         }
 
-        $loginLogs = $loginQuery->all();
+        $loginLogs = $this->paginate($loginQuery, [
+            'limit' => 10,
+        ]);
         $userLogs = $usersQuery->all();
 
         $this->set(compact('loginLogs', 'userLogs', 'period', 'date', 'month', 'year', 'search'));

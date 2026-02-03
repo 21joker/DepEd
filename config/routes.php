@@ -66,6 +66,10 @@ return function (RouteBuilder $routes): void {
             'controller' => 'Requests',
             'action' => 'add',
         ]);
+        $builder->connect('/request/booked-dates', [
+            'controller' => 'Requests',
+            'action' => 'bookedDates',
+        ]);
 
         $builder->connect('/requests/pending', [
             'controller' => 'Requests',

@@ -32,6 +32,9 @@ $(function () {
             $('#role-display-enroll').val('User');
             $('#password-enroll').val('');
             $('#retype-password-enroll').val('');
+            $('#toggle-password-enroll').prop('checked', false);
+            $('#password-enroll').attr('type', 'password');
+            $('#retype-password-enroll').attr('type', 'password');
             $('#username').val('');
             $('#role').val('');
         }
@@ -307,6 +310,13 @@ $(function () {
         });
     });
 
+    $('#users-modal').on('change', '#toggle-password-enroll', function () {
+        var show = $(this).is(':checked');
+        var inputType = show ? 'text' : 'password';
+        $('#password-enroll').attr('type', inputType);
+        $('#retype-password-enroll').attr('type', inputType);
+    });
+
     $('#users-table').on('click', '.delete', function (e) {
         e.preventDefault();
         if (isEnroll) {
@@ -354,6 +364,9 @@ $(function () {
         $('#role-display-enroll').val('User');
         $('#password-enroll').val('');
         $('#retype-password-enroll').val('');
+        $('#toggle-password-enroll').prop('checked', false);
+        $('#password-enroll').attr('type', 'password');
+        $('#retype-password-enroll').attr('type', 'password');
         $('#username').val('');
         $('#role').val('');
         $('#id').val('');

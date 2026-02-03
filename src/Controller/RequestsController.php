@@ -17,7 +17,7 @@ class RequestsController extends AppController
     public function beforeFilter(EventInterface $event)
     {
         parent::beforeFilter($event);
-        $this->Auth->allow(['add', 'exportPdf']);
+        $this->Auth->allow(['add', 'exportPdf', 'bookedDates']);
     }
 
     public function add()
@@ -36,6 +36,26 @@ class RequestsController extends AppController
             }
             if ($venueCombined !== '') {
                 $formData['venue_modality'] = $venueCombined;
+            }
+            $tpParticipant = trim((string)($formData['target_participants_label'] ?? ''));
+            $tpTotal = trim((string)($formData['target_participants_total'] ?? ''));
+            $tpMale = trim((string)($formData['target_participants_male'] ?? ''));
+            $tpFemale = trim((string)($formData['target_participants_female'] ?? ''));
+            if ($tpParticipant !== '' || $tpTotal !== '' || $tpMale !== '' || $tpFemale !== '') {
+                $tpParts = [];
+                if ($tpParticipant !== '') {
+                    $tpParts[] = 'Participant: ' . $tpParticipant;
+                }
+                if ($tpTotal !== '') {
+                    $tpParts[] = 'Total: ' . $tpTotal;
+                }
+                if ($tpMale !== '') {
+                    $tpParts[] = 'Male: ' . $tpMale;
+                }
+                if ($tpFemale !== '') {
+                    $tpParts[] = 'Female: ' . $tpFemale;
+                }
+                $formData['target_participants'] = trim(implode(' | ', $tpParts));
             }
             $requestEntity = $this->Requests->patchEntity($requestEntity, $formData);
             $attachmentUploads = $this->prepareAttachmentUploads($formData);
@@ -124,16 +144,67 @@ class RequestsController extends AppController
                 }
             }
 
-            $scheduleDates = trim((string)($formData['activity_schedule_dates'] ?? ''));
-            $scheduleTimeFrom = trim((string)($formData['activity_schedule_time_from'] ?? ''));
-            $scheduleTimeTo = trim((string)($formData['activity_schedule_time_to'] ?? ''));
-            if ($scheduleDates !== '' || $scheduleTimeFrom !== '' || $scheduleTimeTo !== '') {
-                $timeLabel = trim($scheduleTimeFrom . ' - ' . $scheduleTimeTo, ' -');
-                $scheduleLabel = $scheduleDates;
-                if ($timeLabel !== '') {
-                    $scheduleLabel = trim($scheduleLabel . ' | ' . $timeLabel, ' |');
+            $scheduleEntries = [];
+            $scheduleRows = [];
+            $scheduleDates = (array)($formData['activity_schedule_date'] ?? []);
+            $scheduleTimeFrom = (array)($formData['activity_schedule_time_from'] ?? []);
+            $scheduleTimeTo = (array)($formData['activity_schedule_time_to'] ?? []);
+            $rowCount = max(count($scheduleDates), count($scheduleTimeFrom), count($scheduleTimeTo));
+            for ($i = 0; $i < $rowCount; $i++) {
+                $dateRaw = trim((string)($scheduleDates[$i] ?? ''));
+                $timeFrom = trim((string)($scheduleTimeFrom[$i] ?? ''));
+                $timeTo = trim((string)($scheduleTimeTo[$i] ?? ''));
+                if ($dateRaw === '' && $timeFrom === '' && $timeTo === '') {
+                    continue;
                 }
-                $detailsLines[] = 'Activity Schedule: ' . $scheduleLabel;
+                $dateLabel = $dateRaw;
+                if ($dateRaw !== '') {
+                    $dt = \DateTime::createFromFormat('Y-m-d', $dateRaw)
+                        ?: \DateTime::createFromFormat('m/d/Y', $dateRaw)
+                        ?: \DateTime::createFromFormat('n/j/Y', $dateRaw);
+                    if ($dt) {
+                        $dateLabel = $dt->format('n/j/Y');
+                    }
+                }
+                $timeLabel = trim($timeFrom . ' - ' . $timeTo, ' -');
+                $entry = $dateLabel;
+                if ($timeLabel !== '') {
+                    $entry = trim($entry . ' | ' . $timeLabel, ' |');
+                }
+                if ($entry !== '') {
+                    $scheduleEntries[] = $entry;
+                }
+                $scheduleRows[] = [
+                    'date' => $dateRaw,
+                    'time_from' => $timeFrom,
+                    'time_to' => $timeTo,
+                ];
+            }
+
+            if (empty($scheduleEntries)) {
+                $legacyDates = trim((string)($formData['activity_schedule_dates'] ?? ''));
+                $legacyFrom = trim((string)($formData['activity_schedule_time_from'] ?? ''));
+                $legacyTo = trim((string)($formData['activity_schedule_time_to'] ?? ''));
+                if ($legacyDates !== '' || $legacyFrom !== '' || $legacyTo !== '') {
+                    $legacyTime = trim($legacyFrom . ' - ' . $legacyTo, ' -');
+                    $legacyLabel = $legacyDates;
+                    if ($legacyTime !== '') {
+                        $legacyLabel = trim($legacyLabel . ' | ' . $legacyTime, ' |');
+                    }
+                    $scheduleEntries[] = $legacyLabel;
+                    $scheduleRows[] = [
+                        'date' => $legacyDates,
+                        'time_from' => $legacyFrom,
+                        'time_to' => $legacyTo,
+                    ];
+                }
+            }
+
+            if (!empty($scheduleEntries)) {
+                $detailsLines[] = 'Activity Schedule: ' . implode('; ', $scheduleEntries);
+            }
+            if (!empty($scheduleRows)) {
+                $requestEntity->set('activity_schedule_rows', $scheduleRows);
             }
             foreach ($attachmentUploads as $label => $upload) {
                 if (!empty($upload['filename'])) {
@@ -271,6 +342,7 @@ class RequestsController extends AppController
                     'attachment_sfwp' => $fields['Attachment SFWP'] ?? '',
                     'attachment_ar' => $fields['Attachment AR'] ?? '',
                     'attachment_ac' => $fields['Attachment AC'] ?? '',
+                    'attachment_list_participants' => $fields['Attachment List of Participants'] ?? '',
                 ];
             }
             $requestIds = array_map('intval', array_map(function ($request) {
@@ -429,6 +501,26 @@ class RequestsController extends AppController
             if ($venueCombined !== '') {
                 $formData['venue_modality'] = $venueCombined;
             }
+            $tpParticipant = trim((string)($formData['target_participants_label'] ?? ''));
+            $tpTotal = trim((string)($formData['target_participants_total'] ?? ''));
+            $tpMale = trim((string)($formData['target_participants_male'] ?? ''));
+            $tpFemale = trim((string)($formData['target_participants_female'] ?? ''));
+            if ($tpParticipant !== '' || $tpTotal !== '' || $tpMale !== '' || $tpFemale !== '') {
+                $tpParts = [];
+                if ($tpParticipant !== '') {
+                    $tpParts[] = 'Participant: ' . $tpParticipant;
+                }
+                if ($tpTotal !== '') {
+                    $tpParts[] = 'Total: ' . $tpTotal;
+                }
+                if ($tpMale !== '') {
+                    $tpParts[] = 'Male: ' . $tpMale;
+                }
+                if ($tpFemale !== '') {
+                    $tpParts[] = 'Female: ' . $tpFemale;
+                }
+                $formData['target_participants'] = trim(implode(' | ', $tpParts));
+            }
             $requestEntity = $this->Requests->patchEntity($requestEntity, $formData);
             $attachmentUploads = $this->prepareAttachmentUploads($formData);
             $detailsSource = $requestEntity->details;
@@ -492,22 +584,74 @@ class RequestsController extends AppController
                 }
             }
 
-            $scheduleDates = trim((string)($formData['activity_schedule_dates'] ?? ''));
-            $scheduleTimeFrom = trim((string)($formData['activity_schedule_time_from'] ?? ''));
-            $scheduleTimeTo = trim((string)($formData['activity_schedule_time_to'] ?? ''));
-            if ($scheduleDates !== '' || $scheduleTimeFrom !== '' || $scheduleTimeTo !== '') {
-                $timeLabel = trim($scheduleTimeFrom . ' - ' . $scheduleTimeTo, ' -');
-                $scheduleLabel = $scheduleDates;
-                if ($timeLabel !== '') {
-                    $scheduleLabel = trim($scheduleLabel . ' | ' . $timeLabel, ' |');
+            $scheduleEntries = [];
+            $scheduleRows = [];
+            $scheduleDates = (array)($formData['activity_schedule_date'] ?? []);
+            $scheduleTimeFrom = (array)($formData['activity_schedule_time_from'] ?? []);
+            $scheduleTimeTo = (array)($formData['activity_schedule_time_to'] ?? []);
+            $rowCount = max(count($scheduleDates), count($scheduleTimeFrom), count($scheduleTimeTo));
+            for ($i = 0; $i < $rowCount; $i++) {
+                $dateRaw = trim((string)($scheduleDates[$i] ?? ''));
+                $timeFrom = trim((string)($scheduleTimeFrom[$i] ?? ''));
+                $timeTo = trim((string)($scheduleTimeTo[$i] ?? ''));
+                if ($dateRaw === '' && $timeFrom === '' && $timeTo === '') {
+                    continue;
                 }
-                $detailsLines[] = 'Activity Schedule: ' . $scheduleLabel;
+                $dateLabel = $dateRaw;
+                if ($dateRaw !== '') {
+                    $dt = \DateTime::createFromFormat('Y-m-d', $dateRaw)
+                        ?: \DateTime::createFromFormat('m/d/Y', $dateRaw)
+                        ?: \DateTime::createFromFormat('n/j/Y', $dateRaw);
+                    if ($dt) {
+                        $dateLabel = $dt->format('n/j/Y');
+                    }
+                }
+                $timeLabel = trim($timeFrom . ' - ' . $timeTo, ' -');
+                $entry = $dateLabel;
+                if ($timeLabel !== '') {
+                    $entry = trim($entry . ' | ' . $timeLabel, ' |');
+                }
+                if ($entry !== '') {
+                    $scheduleEntries[] = $entry;
+                }
+                $scheduleRows[] = [
+                    'date' => $dateRaw,
+                    'time_from' => $timeFrom,
+                    'time_to' => $timeTo,
+                ];
+            }
+
+            if (empty($scheduleEntries)) {
+                $legacyDates = trim((string)($formData['activity_schedule_dates'] ?? ''));
+                $legacyFrom = trim((string)($formData['activity_schedule_time_from'] ?? ''));
+                $legacyTo = trim((string)($formData['activity_schedule_time_to'] ?? ''));
+                if ($legacyDates !== '' || $legacyFrom !== '' || $legacyTo !== '') {
+                    $legacyTime = trim($legacyFrom . ' - ' . $legacyTo, ' -');
+                    $legacyLabel = $legacyDates;
+                    if ($legacyTime !== '') {
+                        $legacyLabel = trim($legacyLabel . ' | ' . $legacyTime, ' |');
+                    }
+                    $scheduleEntries[] = $legacyLabel;
+                    $scheduleRows[] = [
+                        'date' => $legacyDates,
+                        'time_from' => $legacyFrom,
+                        'time_to' => $legacyTo,
+                    ];
+                }
+            }
+
+            if (!empty($scheduleEntries)) {
+                $detailsLines[] = 'Activity Schedule: ' . implode('; ', $scheduleEntries);
+            }
+            if (!empty($scheduleRows)) {
+                $requestEntity->set('activity_schedule_rows', $scheduleRows);
             }
             $attachmentLabels = [
                 'Attachment SUB-ARO',
                 'Attachment SFWP',
                 'Attachment AR',
                 'Attachment AC',
+                'Attachment List of Participants',
             ];
             foreach ($attachmentLabels as $label) {
                 if (!empty($attachmentUploads[$label]['filename'])) {
@@ -625,23 +769,45 @@ class RequestsController extends AppController
 
         $schedule = $fields['Activity Schedule'] ?? '';
         if ($schedule !== '') {
-            $datesPart = $schedule;
-            $timeFrom = '';
-            $timeTo = '';
-            if (strpos($schedule, '|') !== false) {
-                $parts = array_map('trim', explode('|', $schedule, 2));
-                $datesPart = $parts[0] ?? '';
-                $timePart = $parts[1] ?? '';
-                $timePart = preg_replace('/^Time\\s*:?\\s*/i', '', (string)$timePart);
-                $timePieces = array_map('trim', explode('-', $timePart, 2));
-                $timeFrom = $timePieces[0] ?? '';
-                $timeTo = $timePieces[1] ?? '';
-            } elseif (strpos($schedule, ' - ') !== false) {
-                $datesPart = $schedule;
+            $rows = [];
+            $parts = preg_split('/[;\\n]+/', (string)$schedule);
+            foreach ($parts as $part) {
+                $part = trim((string)$part);
+                if ($part === '') {
+                    continue;
+                }
+                $datePart = $part;
+                $timeFrom = '';
+                $timeTo = '';
+                if (strpos($part, '|') !== false) {
+                    $segments = array_map('trim', explode('|', $part, 2));
+                    $datePart = $segments[0] ?? '';
+                    $timePart = $segments[1] ?? '';
+                    $timePart = preg_replace('/^Time\\s*:?\\s*/i', '', (string)$timePart);
+                    $timePieces = array_map('trim', explode('-', $timePart, 2));
+                    $timeFrom = $timePieces[0] ?? '';
+                    $timeTo = $timePieces[1] ?? '';
+                }
+                $dateValue = $datePart;
+                if ($datePart !== '') {
+                    $dt = \DateTime::createFromFormat('m/d/Y', $datePart)
+                        ?: \DateTime::createFromFormat('n/j/Y', $datePart);
+                    if ($dt) {
+                        $dateValue = $dt->format('Y-m-d');
+                    }
+                }
+                $rows[] = [
+                    'date' => $dateValue,
+                    'time_from' => $timeFrom,
+                    'time_to' => $timeTo,
+                ];
             }
-            $requestEntity->set('activity_schedule_dates', $datesPart);
-            $requestEntity->set('activity_schedule_time_from', $timeFrom);
-            $requestEntity->set('activity_schedule_time_to', $timeTo);
+            if (!empty($rows)) {
+                $requestEntity->set('activity_schedule_rows', $rows);
+                $requestEntity->set('activity_schedule_dates', (string)($rows[0]['date'] ?? ''));
+                $requestEntity->set('activity_schedule_time_from', (string)($rows[0]['time_from'] ?? ''));
+                $requestEntity->set('activity_schedule_time_to', (string)($rows[0]['time_to'] ?? ''));
+            }
         }
 
         $funds = $fields['Source of Fund'] ?? '';
@@ -686,6 +852,7 @@ class RequestsController extends AppController
                     'attachment_sfwp' => $fields['Attachment SFWP'] ?? '',
                     'attachment_ar' => $fields['Attachment AR'] ?? '',
                     'attachment_ac' => $fields['Attachment AC'] ?? '',
+                    'attachment_list_participants' => $fields['Attachment List of Participants'] ?? '',
                 ];
             }
         }
@@ -851,7 +1018,8 @@ class RequestsController extends AppController
                   'attachment_sub_aro' => $fields['Attachment SUB-ARO'] ?? '',
                   'attachment_sfwp' => $fields['Attachment SFWP'] ?? '',
                   'attachment_ar' => $fields['Attachment AR'] ?? '',
-                  'attachment_ac' => $fields['Attachment AC'] ?? '',
+                    'attachment_ac' => $fields['Attachment AC'] ?? '',
+                    'attachment_list_participants' => $fields['Attachment List of Participants'] ?? '',
               ];
           }
 
@@ -1663,6 +1831,7 @@ class RequestsController extends AppController
             'Attachment SFWP',
             'Attachment AR',
             'Attachment AC',
+            'Attachment List of Participants',
         ];
         $labelLookup = array_fill_keys($knownLabels, true);
         $lines = preg_split("/\\r\\n|\\n|\\r/", $detailsText);
@@ -1753,6 +1922,7 @@ class RequestsController extends AppController
             'attachment_sfwp' => 'Attachment SFWP',
             'attachment_ar' => 'Attachment AR',
             'attachment_ac' => 'Attachment AC',
+            'attachment_list_participants' => 'Attachment List of Participants',
         ];
         $uploads = [];
 
@@ -1851,61 +2021,6 @@ class RequestsController extends AppController
 
     private function buildCounts(int $adminId, array $hiddenRequestIds = []): array
     {
-        if ($adminId > 0) {
-            try {
-                $this->loadModel('RequestApprovals');
-
-                $pendingQuery = $this->Requests->find()
-                    ->where(['Requests.status !=' => 'deleted'])
-                    ->where(function ($exp) {
-                        return $exp->lt('approvals_count', new IdentifierExpression('approvals_needed'));
-                    })
-                    ->notMatching('RequestApprovals', function ($q) use ($adminId) {
-                        return $q->where(['RequestApprovals.admin_user_id' => $adminId]);
-                    });
-                if (!empty($hiddenRequestIds)) {
-                    $pendingQuery->where(['Requests.id NOT IN' => $hiddenRequestIds]);
-                }
-                $pendingCount = $pendingQuery->count();
-
-                $approvedQuery = $this->Requests->find()
-                    ->where(['Requests.status !=' => 'deleted'])
-                    ->matching('RequestApprovals', function ($q) use ($adminId) {
-                        return $q->where([
-                            'RequestApprovals.admin_user_id' => $adminId,
-                            'RequestApprovals.status' => 'approved',
-                        ]);
-                    })
-                    ->distinct(['Requests.id']);
-                if (!empty($hiddenRequestIds)) {
-                    $approvedQuery->where(['Requests.id NOT IN' => $hiddenRequestIds]);
-                }
-                $approvedCount = $approvedQuery->count();
-
-                $rejectedQuery = $this->Requests->find()
-                    ->where(['Requests.status !=' => 'deleted'])
-                    ->matching('RequestApprovals', function ($q) use ($adminId) {
-                        return $q->where([
-                            'RequestApprovals.admin_user_id' => $adminId,
-                            'RequestApprovals.status' => 'declined',
-                        ]);
-                    })
-                    ->distinct(['Requests.id']);
-                if (!empty($hiddenRequestIds)) {
-                    $rejectedQuery->where(['Requests.id NOT IN' => $hiddenRequestIds]);
-                }
-                $rejectedCount = $rejectedQuery->count();
-
-                return [
-                    'pending' => $pendingCount,
-                    'approved' => $approvedCount,
-                    'rejected' => $rejectedCount,
-                ];
-            } catch (\Throwable $e) {
-                // Fallback to global counts if approvals table isn't available.
-            }
-        }
-
         $pendingQuery = $this->Requests->find()
             ->where(['status !=' => 'deleted'])
             ->where(function ($exp) {
@@ -1939,5 +2054,78 @@ class RequestsController extends AppController
             'approved' => $approvedCount,
             'rejected' => $rejectedCount,
         ];
+    }
+
+    public function bookedDates()
+    {
+        $this->request->allowMethod(['get']);
+        $this->autoRender = false;
+
+        $this->loadModel('Requests');
+
+        $schema = $this->Requests->getSchema();
+        $scheduleField = null;
+        if ($schema->hasColumn('message')) {
+            $scheduleField = 'message';
+        } elseif ($schema->hasColumn('details')) {
+            $scheduleField = 'details';
+        } elseif ($schema->hasColumn('activity_schedule')) {
+            $scheduleField = 'activity_schedule';
+        }
+
+        if ($scheduleField === null) {
+            return $this->response
+                ->withType('json')
+                ->withStringBody('{"dates":[]}');
+        }
+
+        $rows = $this->Requests->find()
+            ->select([$scheduleField, 'status'])
+            ->where(function ($exp) {
+                return $exp->notIn('status', ['declined', 'rejected', 'deleted']);
+            })
+            ->all();
+
+        $dates = [];
+        foreach ($rows as $row) {
+            $message = (string)($row->{$scheduleField} ?? '');
+            if ($message === '') {
+                continue;
+            }
+            $raw = '';
+            if (stripos($scheduleField, 'activity_schedule') !== false) {
+                $raw = trim($message);
+            } elseif (preg_match('/Activity Schedule:\s*([^\r\n]+)/i', $message, $match)) {
+                $raw = trim($match[1] ?? '');
+            }
+              if ($raw === '') {
+                  continue;
+              }
+              $matches = [];
+              preg_match_all('/\\b(\\d{1,2}\\/\\d{1,2}\\/\\d{4}|\\d{4}-\\d{2}-\\d{2})\\b/', $raw, $matches);
+              if (empty($matches[0])) {
+                  continue;
+              }
+              foreach ($matches[0] as $item) {
+                  $item = trim((string)$item);
+                  if ($item === '') {
+                      continue;
+                  }
+                  $dt = \DateTime::createFromFormat('m/d/Y', $item)
+                      ?: \DateTime::createFromFormat('n/j/Y', $item)
+                      ?: \DateTime::createFromFormat('Y-m-d', $item);
+                  if ($dt) {
+                      $dates[] = $dt->format('Y-m-d');
+                  }
+              }
+        }
+
+        $dates = array_values(array_unique($dates));
+        sort($dates);
+
+        $payload = json_encode(['dates' => $dates]);
+        return $this->response
+            ->withType('json')
+            ->withStringBody($payload ?: '{"dates":[]}');
     }
 }

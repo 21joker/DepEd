@@ -36,6 +36,7 @@ $knownLabels = [
     'Attachment SFWP',
     'Attachment AR',
     'Attachment AC',
+    'Attachment List of Participants',
 ];
 $labelLookup = array_fill_keys($knownLabels, true);
 $currentLabel = null;

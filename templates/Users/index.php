@@ -199,6 +199,10 @@
                         'type' => 'password',
                         'id' => 'retype-password-enroll'
                     ]) ?>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="toggle-password-enroll">
+                        <label class="form-check-label" for="toggle-password-enroll">Show password</label>
+                    </div>
                     <?= $this->Form->control('username', [
                         'type' => 'hidden',
                         'label' => false,

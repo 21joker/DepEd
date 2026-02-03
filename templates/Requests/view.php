@@ -43,6 +43,7 @@ $knownLabels = [
     'Attachment SFWP',
     'Attachment AR',
     'Attachment AC',
+    'Attachment List of Participants',
 ];
 
 if ($detailsText !== '') {
@@ -424,11 +425,12 @@ function _approval_label(?string $status): string
 
       <?php
         $attachmentMap = [
-            'SUB-ARO' => 'Attachment SUB-ARO',
-            'S/WFP' => 'Attachment SFWP',
-            'AR' => 'Attachment AR',
-            'AC' => 'Attachment AC',
-        ];
+        'SUB-ARO' => 'Attachment SUB-ARO',
+        'S/WFP' => 'Attachment SFWP',
+        'AR' => 'Attachment AR',
+        'AC' => 'Attachment AC',
+        'List of Participants' => 'Attachment List of Participants',
+    ];
         $attachmentItems = [];
         foreach ($attachmentMap as $label => $fieldKey) {
             $filename = trim((string)($fields[$fieldKey] ?? ''));

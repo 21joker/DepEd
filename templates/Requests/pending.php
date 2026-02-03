@@ -126,9 +126,33 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
   <div class="small-box bg-info">
     <div class="inner">
       <h3><?= (int)($totalSubmitted ?? 0) ?></h3>
-      <p>Total Numbers of Submitted Activity</p>
+      <p>Total Submitted Activities</p>
     </div>
     <div class="icon"><i class="fas fa-clipboard-list"></i></div>
+  </div>
+
+  <div class="small-box bg-success">
+    <div class="inner">
+      <h3><?= (int)($counts['approved'] ?? 0) ?></h3>
+      <p>Total Approved Activities</p>
+    </div>
+    <div class="icon"><i class="fas fa-check"></i></div>
+  </div>
+
+  <div class="small-box bg-warning">
+    <div class="inner">
+      <h3><?= (int)($counts['pending'] ?? 0) ?></h3>
+      <p>Total Pending Activities</p>
+    </div>
+    <div class="icon"><i class="fas fa-hourglass-half"></i></div>
+  </div>
+
+  <div class="small-box bg-secondary">
+    <div class="inner">
+      <h3><?= (int)($counts['rejected'] ?? 0) ?></h3>
+      <p>Total Review Activities</p>
+    </div>
+    <div class="icon"><i class="fas fa-search"></i></div>
   </div>
 </div>
 <?php endif; ?>
@@ -181,10 +205,11 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
               <th>Budget Requirement</th>
               <th>Source of Fund</th>
               <th>Grand Total</th>
-              <th>SUB-ARO</th>
-              <th>S/WFP</th>
-              <th>AR</th>
-              <th>AC</th>
+                      <th>SUB-ARO</th>
+                      <th>S/WFP</th>
+                      <th>AR</th>
+                      <th>AC</th>
+                      <th>List of Participants</th>
               <th style="width: 12%;">Submitted</th>
               <th style="width: 12%;">Last Updated</th>
 <?php if ($showStatus): ?>
@@ -214,6 +239,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                 $sfwp = trim((string)($summary['attachment_sfwp'] ?? ''));
                 $ar = trim((string)($summary['attachment_ar'] ?? ''));
                 $acAttach = trim((string)($summary['attachment_ac'] ?? ''));
+                $participantsList = trim((string)($summary['attachment_list_participants'] ?? ''));
                 $requestId = (int)($request->id ?? 0);
                 $buildFileLink = function (string $filename) use ($requestId) {
                     $safeName = basename($filename);
@@ -256,14 +282,21 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                   <?php endif; ?>
                 </td>
                 <td>
-                  <?php if ($acAttach !== '' && ($link = $buildFileLink($acAttach))): ?>
-                    <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener"><?= h($link['name']) ?></a>
-                  <?php else: ?>
-                    <?= $acAttach !== '' ? h($acAttach) : 'N/A' ?>
-                  <?php endif; ?>
-                </td>
+                <?php if ($acAttach !== '' && ($link = $buildFileLink($acAttach))): ?>
+                  <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener"><?= h($link['name']) ?></a>
+                <?php else: ?>
+                  <?= $acAttach !== '' ? h($acAttach) : 'N/A' ?>
+                <?php endif; ?>
+              </td>
+              <td>
+                <?php if ($participantsList !== '' && ($link = $buildFileLink($participantsList))): ?>
+                  <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener"><?= h($link['name']) ?></a>
+                <?php else: ?>
+                  <?= $participantsList !== '' ? h($participantsList) : 'N/A' ?>
+                <?php endif; ?>
+              </td>
 
-                <td><?= h($request->created_at ?? $request->created ?? '') ?></td>
+              <td><?= h($request->created_at ?? $request->created ?? '') ?></td>
                 <td><?= h($request->updated_at ?? $request->modified ?? $request->created_at ?? $request->created ?? '') ?></td>
 
                 <?php if ($showStatus): ?>

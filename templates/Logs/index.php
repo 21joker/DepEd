@@ -37,6 +37,14 @@
 .logs-card + .logs-card {
   margin-top: 16px;
 }
+.logs-pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.logs-pagination .btn-group {
+  flex-wrap: wrap;
+}
 </style>
 
 <div class="col-12 p-0">
@@ -106,6 +114,7 @@
           <h3 class="card-title">Login Logs</h3>
         </div>
         <div class="card-body p-0">
+          <?php $this->Paginator->options(['url' => $this->request->getQueryParams()]); ?>
           <div class="table-responsive">
             <table class="table table-sm table-bordered mb-0">
               <thead>
@@ -129,6 +138,28 @@
                 <?php endif; ?>
               </tbody>
             </table>
+          </div>
+          <?php
+            $paginationTemplates = [
+              'number' => '<a class="btn btn-outline-secondary btn-sm" href="{{url}}">{{text}}</a>',
+              'current' => '<span class="btn btn-secondary btn-sm active">{{text}}</span>',
+              'ellipsis' => '',
+            ];
+          ?>
+          <div class="logs-pagination justify-content-between p-2">
+            <div>
+              <?= $this->Paginator->prev('Prev', ['class' => 'btn btn-outline-secondary btn-sm']) ?>
+            </div>
+            <div class="btn-group" role="group" aria-label="Pagination">
+              <?= $this->Paginator->numbers([
+                'tag' => 'div',
+                'templates' => $paginationTemplates,
+                'modulus' => 5,
+              ]) ?>
+            </div>
+            <div>
+              <?= $this->Paginator->next('Next', ['class' => 'btn btn-outline-secondary btn-sm']) ?>
+            </div>
           </div>
         </div>
       </div>

@@ -133,11 +133,26 @@ $cakeDescription = 'SDO ACTIVTITY';
             width: 100%;
         }
         .main-header.navbar {
+            position: relative;
             background: linear-gradient(90deg, #1e3a8a 0%, #1e3a8a 50%, #b91c1c 50%, #b91c1c 100%);
             background-size: 100vw 100%;
             background-position: calc(-1 * var(--sidebar-width)) 0;
             background-repeat: no-repeat;
             border-bottom: 1px solid #e2e8f0;
+        }
+        .main-header.navbar::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 12px;
+            background: #facc15;
+            z-index: 1;
+        }
+        .main-header.navbar > * {
+            position: relative;
+            z-index: 2;
         }
         .main-header.navbar .nav-link,
         .main-header.navbar .nav-link i,

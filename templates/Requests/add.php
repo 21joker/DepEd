@@ -117,6 +117,30 @@
     height: auto;
     display: block;
 }
+.schedule-calendar-title {
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 6px;
+}
+.target-participants-grid {
+    border: 1px solid #2b2b2b;
+}
+.target-participants-grid .tp-cell {
+    border-left: 1px solid #2b2b2b;
+}
+.target-participants-grid .tp-cell:first-child {
+    border-left: none;
+}
+#activity-calendar .disabled,
+#activity-calendar .disabled:hover,
+#activity-calendar .disabled.day,
+#activity-calendar .disabled.day:hover,
+#activity-calendar .disabled.day.active {
+    background: #dc3545;
+    color: #fff;
+    opacity: 1;
+    cursor: not-allowed;
+}
 </style>
 
 <?php
@@ -195,6 +219,7 @@
                             <th>S/WFP</th>
                             <th>AR</th>
                             <th>AC</th>
+                            <th>List of Participants</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -214,6 +239,7 @@
                                 $sfwp = trim((string)($summary['attachment_sfwp'] ?? ''));
                                 $ar = trim((string)($summary['attachment_ar'] ?? ''));
                                 $acAttach = trim((string)($summary['attachment_ac'] ?? ''));
+                                $participantsList = trim((string)($summary['attachment_list_participants'] ?? ''));
                                 $requestStatusById = $requestStatusById ?? [];
                                 $rowStatus = $requestStatusById[(int)$request->id] ?? ($request->status ?? 'pending');
                                 $isDeclined = $rowStatus === 'declined';
@@ -290,20 +316,29 @@
                                         <?= $ar !== '' ? h($ar) : 'N/A' ?>
                                     <?php endif; ?>
                                 </td>
-                                <td>
-                                    <?php if ($acAttach !== '' && ($link = $buildFileLink($acAttach))): ?>
-                                        <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener">
-                                            <?= h($link['name']) ?>
-                                        </a>
-                                    <?php else: ?>
-                                        <?= $acAttach !== '' ? h($acAttach) : 'N/A' ?>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <span class="badge badge-<?= h($statusClass) ?> status-badge">
-                                        <?= h($statusLabel) ?>
-                                    </span>
-                                </td>
+                                  <td>
+                                      <?php if ($acAttach !== '' && ($link = $buildFileLink($acAttach))): ?>
+                                          <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener">
+                                              <?= h($link['name']) ?>
+                                          </a>
+                                      <?php else: ?>
+                                          <?= $acAttach !== '' ? h($acAttach) : 'N/A' ?>
+                                      <?php endif; ?>
+                                  </td>
+                                  <td>
+                                      <?php if ($participantsList !== '' && ($link = $buildFileLink($participantsList))): ?>
+                                          <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener">
+                                              <?= h($link['name']) ?>
+                                          </a>
+                                      <?php else: ?>
+                                          <?= $participantsList !== '' ? h($participantsList) : 'N/A' ?>
+                                      <?php endif; ?>
+                                  </td>
+                                  <td>
+                                      <span class="badge badge-<?= h($statusClass) ?> status-badge">
+                                          <?= h($statusLabel) ?>
+                                      </span>
+                                  </td>
                                 <td class="actions">
                                     <a
                                         class="btn btn-sm btn-primary action-btn modal-link"
@@ -378,6 +413,29 @@
                         $venueDetails = $venueValue;
                     }
                 }
+
+                $targetRaw = trim((string)($requestEntity->target_participants ?? ''));
+                $targetParticipant = '';
+                $targetTotal = '';
+                $targetMale = '';
+                $targetFemale = '';
+                if ($targetRaw !== '') {
+                    if (preg_match('/Participant\\s*:\\s*([^|]+)/i', $targetRaw, $match)) {
+                        $targetParticipant = trim((string)($match[1] ?? ''));
+                    }
+                    if (preg_match('/Total\\s*:\\s*([^|]+)/i', $targetRaw, $match)) {
+                        $targetTotal = trim((string)($match[1] ?? ''));
+                    }
+                    if (preg_match('/Male\\s*:\\s*([^|]+)/i', $targetRaw, $match)) {
+                        $targetMale = trim((string)($match[1] ?? ''));
+                    }
+                    if (preg_match('/Female\\s*:\\s*([^|]+)/i', $targetRaw, $match)) {
+                        $targetFemale = trim((string)($match[1] ?? ''));
+                    }
+                    if ($targetParticipant === '' && $targetTotal === '' && $targetMale === '' && $targetFemale === '') {
+                        $targetParticipant = $targetRaw;
+                    }
+                }
             ?>
 
             <div class="proposal-title mb-3">
@@ -435,64 +493,113 @@
                         ]) ?></td>
                     </tr>
                     <tr>
-                        <td class="label">Activity Schedule:</td>
-                        <td colspan="2">
-                            <div class="form-row">
-                                <div class="col-md-8">
-                                    <div id="activity-calendar" class="border"></div>
-                                    <?= $this->Form->control('activity_schedule_dates', [
-                                        'type' => 'text',
-                                        'label' => false,
-                                        'class' => 'form-control mt-2',
-                                        'id' => 'activity-schedule-dates',
-                                        'readonly' => true,
-                                        'placeholder' => 'Selected dates'
-                                    ]) ?>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="mb-1 font-weight-bold">Time From</label>
-                                    <?= $this->Form->control('activity_schedule_time_from', [
-                                        'type' => 'time',
-                                        'label' => false,
-                                        'class' => 'form-control',
-                                        'id' => 'activity-schedule-time-from'
-                                    ]) ?>
-                                    <label class="mt-2 mb-1 font-weight-bold">Time To</label>
-                                    <?= $this->Form->control('activity_schedule_time_to', [
-                                        'type' => 'time',
-                                        'label' => false,
-                                        'class' => 'form-control',
-                                        'id' => 'activity-schedule-time-to'
-                                    ]) ?>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                    <tr>
+                        <td class="label">
+                            Activity Schedule:
+                          </td>
+                          <td colspan="2">
+                              <?php
+                                  $scheduleRows = $requestEntity->get('activity_schedule_rows');
+                                  if (!is_array($scheduleRows) || empty($scheduleRows)) {
+                                      $scheduleRows = [[
+                                          'date' => (string)($requestEntity->get('activity_schedule_dates') ?? ''),
+                                          'time_from' => (string)($requestEntity->get('activity_schedule_time_from') ?? ''),
+                                          'time_to' => (string)($requestEntity->get('activity_schedule_time_to') ?? ''),
+                                      ]];
+                                  }
+                              ?>
+                              <div id="schedule-rows">
+                                  <?php foreach ($scheduleRows as $rowIndex => $row): ?>
+                                      <div class="form-row align-items-end mb-2 schedule-row">
+                                          <div class="col-md-5">
+                                              <label class="mb-1 font-weight-bold">Date</label>
+                                              <input type="date" name="activity_schedule_date[]" class="form-control schedule-date" value="<?= h($row['date'] ?? '') ?>">
+                                          </div>
+                                          <div class="col-md-3">
+                                              <label class="mb-1 font-weight-bold">Time From</label>
+                                              <input type="time" name="activity_schedule_time_from[]" class="form-control" value="<?= h($row['time_from'] ?? '') ?>">
+                                          </div>
+                                          <div class="col-md-3">
+                                              <label class="mb-1 font-weight-bold">Time To</label>
+                                              <input type="time" name="activity_schedule_time_to[]" class="form-control" value="<?= h($row['time_to'] ?? '') ?>">
+                                          </div>
+                                          <div class="col-md-1 text-right">
+                                              <button type="button" class="btn btn-outline-secondary btn-sm add-schedule-row" title="Add">
+                                                  <i class="fas fa-plus"></i>
+                                              </button>
+                                              <button type="button" class="btn btn-outline-secondary btn-sm remove-schedule-row" title="Remove">
+                                                  <i class="fas fa-minus"></i>
+                                              </button>
+                                          </div>
+                                      </div>
+                                  <?php endforeach; ?>
+                              </div>
+                              <small class="text-muted">Use the + button to add another date/time.</small>
+                          </td>
+                      </tr>
+                      <tr>
                         <td class="label">Venue/Modality:</td>
-                        <td colspan="2">
-                            <div class="form-row align-items-center">
-                                <div class="col">
-                                    <?= $this->Form->text('venue_modality_details', [
-                                        'class' => 'form-control',
-                                        'label' => false,
-                                        'value' => $venueDetails,
-                                        'placeholder' => 'venue',
-                                    ]) ?>
+                            <td colspan="2">
+                                <div class="form-row align-items-center">
+                                    <div class="col">
+                                        <?= $this->Form->text('venue_modality_details', [
+                                            'class' => 'form-control',
+                                            'label' => false,
+                                            'value' => $venueDetails,
+                                            'placeholder' => 'venue',
+                                        ]) ?>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" data-toggle="modal" data-target="#mph-calendar-modal">
+                                            MPH Calendar
+                                        </button>
+                                    </div>
+                                    <div class="col-4">
+                                        <?= $this->Form->select('venue_modality_choice', $venueOptions, [
+                                            'class' => 'form-control',
+                                            'label' => false,
+                                            'value' => $venueChoice,
+                                        ]) ?>
+                                    </div>
                                 </div>
-                                <div class="col-4">
-                                    <?= $this->Form->select('venue_modality_choice', $venueOptions, [
-                                        'class' => 'form-control',
-                                        'label' => false,
-                                        'value' => $venueChoice,
+                            </td>
+                    </tr>
+                    <tr>
+                        <td class="label">Target Participant:</td>
+                          <td colspan="2">
+                              <div class="form-row text-center target-participants-grid">
+                                  <div class="col-md-3 font-weight-bold tp-cell">Participant:</div>
+                                  <div class="col-md-3 font-weight-bold tp-cell">Male:</div>
+                                  <div class="col-md-3 font-weight-bold tp-cell">Female:</div>
+                                  <div class="col-md-3 font-weight-bold tp-cell">Total:</div>
+                              </div>
+                              <div class="form-row target-participants-grid">
+                                  <div class="col-md-3 tp-cell">
+                                      <?= $this->Form->text('target_participants_label', [
+                                          'class' => 'form-control',
+                                          'value' => $targetParticipant,
+                                      ]) ?>
+                                  </div>
+                                  <div class="col-md-3 tp-cell">
+                                      <?= $this->Form->text('target_participants_male', [
+                                          'class' => 'form-control',
+                                          'value' => $targetMale,
+                                      ]) ?>
+                                  </div>
+                                  <div class="col-md-3 tp-cell">
+                                      <?= $this->Form->text('target_participants_female', [
+                                          'class' => 'form-control',
+                                          'value' => $targetFemale,
+                                      ]) ?>
+                                  </div>
+                                  <div class="col-md-3 tp-cell">
+                                      <?= $this->Form->text('target_participants_total', [
+                                          'class' => 'form-control',
+                                          'value' => $targetTotal,
+                                          'readonly' => true,
                                     ]) ?>
                                 </div>
                             </div>
                         </td>
-                    </tr>
-                    <tr>
-                        <td class="label">Target Participants:</td>
-                        <td colspan="2"><?= $this->Form->text('target_participants', ['class' => 'form-control']) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Activity Description (Justification):</td>
@@ -673,6 +780,16 @@
                             'accept' => '.pdf,application/pdf'
                         ]) ?>
                     </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="attachment-list-participants">List of Participants</label>
+                        <?= $this->Form->control('attachment_list_participants', [
+                            'type' => 'file',
+                            'label' => false,
+                            'id' => 'attachment-list-participants',
+                            'class' => 'form-control',
+                            'accept' => '.pdf,application/pdf'
+                        ]) ?>
+                    </div>
                 </div>
                 <small class="text-muted">PDF files only.</small>
             </div>
@@ -691,49 +808,183 @@
             </div>
             <?= $this->Form->end() ?>
 
-            <div class="proposal-footer">
-                <?= $this->Html->image('footer.jpg', [
-                    'alt' => 'Footer',
-                ]) ?>
-            </div>
-        </div>
+      <div class="proposal-footer">
+          <?= $this->Html->image('footer.jpg', [
+              'alt' => 'Footer',
+          ]) ?>
+      </div>
+  </div>
+</div>
+</div>
+
+<div class="modal fade" id="mph-calendar-modal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">MPH Calendar</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="schedule-calendar-title mb-2 text-left">MPH</div>
+        <div id="activity-calendar" class="border"></div>
+        <small class="text-muted d-block mt-2">Red dates are already booked.</small>
+      </div>
     </div>
+  </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var scheduleDatesInput = document.getElementById('activity-schedule-dates');
-    if (window.jQuery && $.fn.datetimepicker && $('#activity-calendar').length) {
+    var bookedDatesUrl = <?= json_encode($this->Url->build('/request/booked-dates')) ?>;
+    var bookedDates = [];
+    var calendarReady = false;
+
+    function normalizeDate(value) {
+        if (!value) {
+            return null;
+        }
+        var trimmed = value.toString().trim();
+        if (trimmed === '') {
+            return null;
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+            return trimmed;
+        }
+        if (window.moment) {
+            var parsed = moment(trimmed, ['MM/DD/YYYY', 'M/D/YYYY'], true);
+            if (parsed.isValid()) {
+                return parsed.format('YYYY-MM-DD');
+            }
+        }
+        return null;
+    }
+
+    function applyBookedDates() {
+        if (!window.jQuery || !$.fn.datetimepicker) {
+            return;
+        }
+        var $calendar = $('#activity-calendar');
+        if (!$calendar.length) {
+            return;
+        }
+        var picker = $calendar.data('datetimepicker');
+        if (!picker || !window.moment) {
+            return;
+        }
+        var disabled = bookedDates.map(function (item) {
+            return moment(item, 'YYYY-MM-DD');
+        });
+        $calendar.datetimepicker('disabledDates', disabled);
+    }
+
+    function fetchBookedDates() {
+        if (!bookedDatesUrl) {
+            return;
+        }
+        var handleData = function (data) {
+            if (!data || !Array.isArray(data.dates)) {
+                return;
+            }
+            bookedDates = data.dates;
+            applyBookedDates();
+        };
+        if (window.fetch) {
+            fetch(bookedDatesUrl, { credentials: 'same-origin' })
+                .then(function (response) {
+                    if (!response.ok) {
+                        return null;
+                    }
+                    return response.json();
+                })
+                .then(handleData)
+                .catch(function () {});
+            return;
+        }
+        if (window.jQuery) {
+            $.getJSON(bookedDatesUrl).done(handleData);
+        }
+    }
+
+    function initCalendar() {
+        if (calendarReady) {
+            return;
+        }
+        if (!window.jQuery || !$.fn.datetimepicker || !$('#activity-calendar').length) {
+            return;
+        }
         var $calendar = $('#activity-calendar');
         $calendar.datetimepicker({
             format: 'L',
             inline: true,
             allowMultidate: true,
-            multidateSeparator: ', '
+            multidateSeparator: ', ',
+            useCurrent: false
         });
+        $calendar.on('change.datetimepicker', function (event) {
+            if (event && event.date) {
+                $calendar.datetimepicker('clear');
+            }
+        });
+        calendarReady = true;
+        applyBookedDates();
+    }
 
-        var updateScheduleDates = function () {
-            if (!scheduleDatesInput) {
+    $('#mph-calendar-modal').on('shown.bs.modal', function () {
+        initCalendar();
+        fetchBookedDates();
+    });
+
+    var scheduleRows = document.getElementById('schedule-rows');
+    if (scheduleRows) {
+        scheduleRows.addEventListener('click', function (event) {
+            var addBtn = event.target.closest('.add-schedule-row');
+            var removeBtn = event.target.closest('.remove-schedule-row');
+            if (addBtn) {
+                var rows = scheduleRows.querySelectorAll('.schedule-row');
+                var lastRow = rows[rows.length - 1];
+                if (!lastRow) {
+                    return;
+                }
+                var newRow = lastRow.cloneNode(true);
+                newRow.querySelectorAll('input').forEach(function (input) {
+                    input.value = '';
+                });
+                scheduleRows.appendChild(newRow);
                 return;
             }
-            var value = $calendar.data('date') || '';
-            scheduleDatesInput.value = value;
-        };
-
-        $calendar.on('change.datetimepicker', updateScheduleDates);
-
-        if (scheduleDatesInput && scheduleDatesInput.value.trim() !== '') {
-            var seedDates = scheduleDatesInput.value.split(',').map(function (item) {
-                return item.trim();
-            }).filter(function (item) { return item !== ''; });
-            var picker = $calendar.data('datetimepicker');
-            if (picker && seedDates.length) {
-                picker.setMultiDate(seedDates);
+            if (removeBtn) {
+                var allRows = scheduleRows.querySelectorAll('.schedule-row');
+                var row = removeBtn.closest('.schedule-row');
+                if (!row) {
+                    return;
+                }
+                if (allRows.length <= 1) {
+                    row.querySelectorAll('input').forEach(function (input) {
+                        input.value = '';
+                    });
+                    return;
+                }
+                row.remove();
             }
-        }
+        });
 
-        updateScheduleDates();
+        scheduleRows.addEventListener('change', function (event) {
+            var input = event.target;
+            if (!input || !input.classList.contains('schedule-date')) {
+                return;
+            }
+            var normalized = normalizeDate(input.value);
+            if (normalized && bookedDates.indexOf(normalized) !== -1) {
+                alert('Selected date is already booked.');
+                input.value = '';
+            }
+        });
     }
+
+    fetchBookedDates();
+    setInterval(fetchBookedDates, 10000);
 
     var toggleButton = document.getElementById('toggle-proposal-form');
     var formContainer = document.getElementById('proposal-form-container');
@@ -932,7 +1183,6 @@ document.addEventListener('DOMContentLoaded', function () {
             status.textContent = 'MISMATCH';
             status.className = 'alert alert-danger mt-2 mb-0';
             status.style.display = 'block';
-            alert('MISMATCH');
             return;
         }
         if (budgetValue > grandValue) {
@@ -940,7 +1190,6 @@ document.addEventListener('DOMContentLoaded', function () {
             status.textContent = 'REMAINING BALANCE: ' + formatPeso(remaining.toFixed(2));
             status.className = 'alert alert-warning mt-2 mb-0';
             status.style.display = 'block';
-            alert('REMAINING BALANCE: ' + formatPeso(remaining.toFixed(2)));
             return;
         }
         status.style.display = 'none';
@@ -1002,6 +1251,28 @@ document.addEventListener('DOMContentLoaded', function () {
     updateGrandTotal();
     updateBudgetStatus();
 
+    var tpTotal = document.querySelector('input[name="target_participants_total"]');
+    var tpMale = document.querySelector('input[name="target_participants_male"]');
+    var tpFemale = document.querySelector('input[name="target_participants_female"]');
+    function normalizeInt(value) {
+        var cleaned = (value || '').toString().replace(/[^\d]/g, '');
+        return cleaned === '' ? 0 : parseInt(cleaned, 10);
+    }
+    function updateTargetTotal() {
+        if (!tpTotal || !tpMale || !tpFemale) {
+            return;
+        }
+        var maleVal = normalizeInt(tpMale.value);
+        var femaleVal = normalizeInt(tpFemale.value);
+        var total = maleVal + femaleVal;
+        tpTotal.value = total ? String(total) : '';
+    }
+    if (tpMale && tpFemale && tpTotal) {
+        tpMale.addEventListener('input', updateTargetTotal);
+        tpFemale.addEventListener('input', updateTargetTotal);
+        updateTargetTotal();
+    }
+
     var proposalForm = document.getElementById('proposal-form');
     if (proposalForm) {
         proposalForm.addEventListener('submit', function (event) {
@@ -1016,13 +1287,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 grandValue = 0;
             }
             if (grandValue > budgetValue) {
-                alert('MISMATCH');
                 event.preventDefault();
                 return;
             }
             if (budgetValue > grandValue) {
                 var remaining = budgetValue - grandValue;
-                alert('REMAINING BALANCE: ' + formatPeso(remaining.toFixed(2)));
                 event.preventDefault();
                 return;
             }
