@@ -218,7 +218,7 @@
                             <th>SUB-ARO</th>
                             <th>S/WFP</th>
                             <th>AR</th>
-                            <th>AC</th>
+                            <th>ATC</th>
                             <th>List of Participants</th>
                             <th>Status</th>
                             <th>Actions</th>
@@ -619,7 +619,7 @@
                             'class' => 'form-control',
                             'value' => !empty($requestEntity->monitoring_evaluation)
                                 ? $requestEntity->monitoring_evaluation
-                                : 'SHIRLYN R. MACASPAC PhD / ARCADIO L. MODUMO',
+                                : 'SHIRLYN R. MACASPAC PhD / ARCADIO L. MODUMO Jr.',
                         ]) ?></td>
                     </tr>
                 </tbody>
@@ -771,7 +771,7 @@
                         ]) ?>
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label for="attachment-ac">AC</label>
+                        <label for="attachment-ac">ATC</label>
                         <?= $this->Form->control('attachment_ac', [
                             'type' => 'file',
                             'label' => false,
@@ -780,18 +780,24 @@
                             'accept' => '.pdf,application/pdf'
                         ]) ?>
                     </div>
-                    <div class="col-md-6 mb-3">
+                  
+                    <div class="col-md-6 mb-3"> <small class="text-muted">PDF files only.</small><br><br>
                         <label for="attachment-list-participants">List of Participants</label>
                         <?= $this->Form->control('attachment_list_participants', [
                             'type' => 'file',
                             'label' => false,
                             'id' => 'attachment-list-participants',
                             'class' => 'form-control',
-                            'accept' => '.pdf,application/pdf'
+                            'accept' => '.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                         ]) ?>
+                        <small class="text-muted">
+                            <a href="<?= $this->Url->build('/img/Participant List Template.xlsx') ?>" download>
+                                Excel file: Participant List Template
+                            </a>
+                        </small>
                     </div>
                 </div>
-                <small class="text-muted">PDF files only.</small>
+                
             </div>
 
             <div class="proposal-actions d-flex align-items-center justify-content-end">

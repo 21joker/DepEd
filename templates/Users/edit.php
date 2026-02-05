@@ -18,13 +18,18 @@
     </aside>
     <div class="column-responsive column-80">
         <div class="users form content">
-            <?= $this->Form->create($user) ?>
+            <?= $this->Form->create($user, ['type' => 'file']) ?>
             <fieldset>
                 <legend><?= __('Edit User') ?></legend>
                 <?php
                     echo $this->Form->control('username');
                     echo $this->Form->control('password');
                     echo $this->Form->control('role',['options'=>$this->Options->role()]);
+                    echo $this->Form->control('esignature', [
+                        'type' => 'file',
+                        'label' => 'Attach E-Signature',
+                        'accept' => '.png,.jpg,.jpeg',
+                    ]);
                 ?>
             </fieldset>
             <?= $this->Form->button(__('Submit')) ?>

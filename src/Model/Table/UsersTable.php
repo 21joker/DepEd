@@ -143,6 +143,11 @@ class UsersTable extends Table
             ->maxLength('section_unit', 100)
             ->allowEmptyString('section_unit');
 
+        $validator
+            ->scalar('esignature')
+            ->maxLength('esignature', 255)
+            ->allowEmptyString('esignature');
+
         return $validator;
     }
 

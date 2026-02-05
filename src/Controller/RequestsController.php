@@ -1305,7 +1305,9 @@ class RequestsController extends AppController
 
         $proponentName = '';
         $proponentDegree = '';
-        $proponentPosition = '';
+          $proponentPosition = '';
+          $proponentEsignature = '';
+          $approverSignatures = [];
         $detailsSource = $requestEntity->details;
         if ($detailsSource === null || trim((string)$detailsSource) === '') {
             $detailsSource = $requestEntity->message ?? '';
@@ -1330,22 +1332,31 @@ class RequestsController extends AppController
             }
         }
 
-        if ($proponentName === '' && !empty($requestEntity->user_id)) {
-            try {
-                $this->loadModel('Users');
-                $user = $this->Users->find()
-                    ->select([
-                        'first_name',
-                        'middle_initial',
-                        'last_name',
-                        'suffix',
-                        'degree',
-                        'position',
-                        'email_address',
-                    ])
-                    ->where(['id' => (int)$requestEntity->user_id])
-                    ->first();
-                if ($user) {
+          if ($proponentName === '' && !empty($requestEntity->user_id)) {
+              try {
+                  $this->loadModel('Users');
+                  try {
+                      $schema = $this->Users->getConnection()
+                          ->getSchemaCollection()
+                          ->describe($this->Users->getTable());
+                      $this->Users->setSchema($schema);
+                  } catch (\Throwable $e) {
+                      // Ignore schema refresh failures.
+                  }
+                  $user = $this->Users->find()
+                      ->select([
+                          'first_name',
+                          'middle_initial',
+                          'last_name',
+                          'suffix',
+                          'degree',
+                          'position',
+                          'email_address',
+                          'esignature',
+                      ])
+                      ->where(['id' => (int)$requestEntity->user_id])
+                      ->first();
+                  if ($user) {
                     $parts = array_filter([
                         $user->first_name ?? null,
                         $user->middle_initial ?? null,
@@ -1357,14 +1368,55 @@ class RequestsController extends AppController
                     }
                     if ($name !== '') {
                         $proponentName = $name;
-                    }
-                    $proponentDegree = (string)($user->degree ?? '');
-                    $proponentPosition = (string)($user->position ?? '');
-                }
-            } catch (\Throwable $e) {
-                // Ignore if users table isn't available.
-            }
-        }
+                      }
+                      $proponentDegree = (string)($user->degree ?? '');
+                      $proponentPosition = (string)($user->position ?? '');
+                      $proponentEsignature = (string)($user->esignature ?? '');
+                  }
+              } catch (\Throwable $e) {
+                  // Ignore if users table isn't available.
+              }
+          }
+          if ($proponentEsignature === '' && !empty($requestEntity->user_id)) {
+              $fallbackSignature = $this->findLatestEsignature((int)$requestEntity->user_id);
+              if ($fallbackSignature !== null) {
+                  $proponentEsignature = $fallbackSignature;
+              }
+          }
+          $approverUsernames = ['po', 'smmne', 'ao', 'budget', 'accountant'];
+          try {
+              $this->loadModel('Users');
+              try {
+                  $schema = $this->Users->getConnection()
+                      ->getSchemaCollection()
+                      ->describe($this->Users->getTable());
+                  $this->Users->setSchema($schema);
+              } catch (\Throwable $e) {
+                  // Ignore schema refresh failures.
+              }
+              $rows = $this->Users->find()
+                  ->select(['id', 'username', 'esignature'])
+                  ->where(['username IN' => $approverUsernames])
+                  ->all();
+              foreach ($rows as $row) {
+                  $username = strtolower((string)($row->username ?? ''));
+                  if ($username === '') {
+                      continue;
+                  }
+                  $signature = (string)($row->esignature ?? '');
+                  if ($signature === '') {
+                      $fallbackSignature = $this->findLatestEsignature((int)$row->id);
+                      if ($fallbackSignature !== null) {
+                          $signature = $fallbackSignature;
+                      }
+                  }
+                  if ($signature !== '') {
+                      $approverSignatures[$username] = $signature;
+                  }
+              }
+          } catch (\Throwable $e) {
+              // Ignore user signature lookup failures.
+          }
 
         $this->viewBuilder()->setLayout('ajax');
         $pageTitle = 'Activity Proposal';
@@ -1373,8 +1425,97 @@ class RequestsController extends AppController
             'pageTitle',
             'proponentName',
             'proponentDegree',
-            'proponentPosition'
+            'proponentPosition',
+            'proponentEsignature',
+            'approverSignatures'
         ));
+    }
+
+    public function exportAllPdf()
+    {
+        $response = $this->ensureAdmin();
+        if ($response) {
+            return $response;
+        }
+
+        $adminId = (int)$this->Auth->user('id');
+        $exportMode = (string)$this->request->getQuery('export_mode');
+        $exportDate = (string)$this->request->getQuery('export_date');
+        [$requests, $requestSummaries, $adminApprovalStatus] = $this->getPendingListData($adminId, $exportMode, $exportDate);
+
+        $this->viewBuilder()->setLayout('ajax');
+        $pageTitle = 'All Requests';
+        $this->set(compact('requests', 'requestSummaries', 'adminApprovalStatus', 'pageTitle'));
+        $this->render('export_all_pdf');
+    }
+
+    public function exportAllExcel()
+    {
+        $response = $this->ensureAdmin();
+        if ($response) {
+            return $response;
+        }
+
+        $adminId = (int)$this->Auth->user('id');
+        $exportMode = (string)$this->request->getQuery('export_mode');
+        $exportDate = (string)$this->request->getQuery('export_date');
+        [$requests, $requestSummaries, $adminApprovalStatus] = $this->getPendingListData($adminId, $exportMode, $exportDate);
+
+        $filename = 'requests_' . date('Ymd_His') . '.csv';
+        $handle = fopen('php://temp', 'r+');
+        fputcsv($handle, [
+            'Name',
+            'AC',
+            'Title of Activity',
+            'Activity Schedule',
+            'Budget Requirement',
+            'Source of Fund',
+            'Grand Total',
+            'SUB-ARO',
+            'S/WFP',
+            'AR',
+            'ATC',
+            'List of Participants',
+            'Submitted',
+            'Last Updated',
+            'Status',
+        ]);
+
+        foreach ($requests as $request) {
+            $summary = $requestSummaries[$request->id] ?? [];
+            $name = (string)($request->name ?? '');
+            if ($name === '') {
+                $name = (string)($request->display_name ?? $request->email ?? '');
+            }
+            $status = $adminApprovalStatus[$request->id] ?? 'pending';
+            $label = $status === 'approved' ? 'Approved' : ($status === 'declined' ? 'Review' : 'Pending');
+            fputcsv($handle, [
+                $name,
+                $summary['pmis_activity_code'] ?? '',
+                $summary['title_of_activity'] ?? '',
+                $summary['activity_schedule'] ?? '',
+                $summary['budget_requirement'] ?? '',
+                $summary['source_of_fund'] ?? '',
+                $summary['grand_total'] ?? '',
+                $summary['attachment_sub_aro'] ?? '',
+                $summary['attachment_sfwp'] ?? '',
+                $summary['attachment_ar'] ?? '',
+                $summary['attachment_ac'] ?? '',
+                $summary['attachment_list_participants'] ?? '',
+                $request->created_at ?? $request->created ?? '',
+                $request->updated_at ?? $request->modified ?? $request->created_at ?? $request->created ?? '',
+                $label,
+            ]);
+        }
+
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return $this->response
+            ->withType('text/csv')
+            ->withHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->withStringBody($csv);
     }
 
     public function approve($id = null)
@@ -1773,9 +1914,9 @@ class RequestsController extends AppController
         return $adminList;
     }
 
-    private function getApproverHierarchy(): array
-    {
-        return [
+      private function getApproverHierarchy(): array
+      {
+          return [
             'PO' => 1,
             'SMMNE' => 2,
             'AO' => 3,
@@ -1783,8 +1924,36 @@ class RequestsController extends AppController
             'ACCOUNTANT' => 5,
             'ASDS' => 6,
             'SDS' => 7,
-        ];
-    }
+          ];
+      }
+
+      private function findLatestEsignature(int $userId): ?string
+      {
+          if ($userId <= 0) {
+              return null;
+          }
+          $directory = WWW_ROOT . 'uploads' . DS . 'esignatures' . DS . $userId;
+          if (!is_dir($directory)) {
+              return null;
+          }
+          $files = glob($directory . DS . '*.{png,jpg,jpeg,PNG,JPG,JPEG}', GLOB_BRACE);
+          if (!$files) {
+              return null;
+          }
+          $latest = null;
+          $latestTime = 0;
+          foreach ($files as $file) {
+              $mtime = @filemtime($file);
+              if ($mtime !== false && $mtime >= $latestTime) {
+                  $latestTime = $mtime;
+                  $latest = $file;
+              }
+          }
+          if ($latest === null) {
+              return null;
+          }
+          return 'uploads/esignatures/' . $userId . '/' . basename($latest);
+      }
 
     private function getApproverRank(?string $username, array $hierarchy): ?int
     {
@@ -1982,6 +2151,156 @@ class RequestsController extends AppController
                 // Ignore upload errors to avoid blocking form submission.
             }
         }
+    }
+
+    private function getPendingListData(int $adminId, string $exportMode = '', string $exportDate = ''): array
+    {
+        $hiddenRequestIds = $this->getHiddenRequestIds($adminId);
+        $query = $this->Requests->find()
+            ->where(['status !=' => 'deleted'])
+            ->orderDesc('created_at')
+            ->orderDesc('id');
+        $this->applyExportDateFilter($query, $exportMode, $exportDate);
+        $requests = $query->all();
+        if (!empty($hiddenRequestIds)) {
+            $query = $this->Requests->find()
+                ->where(['status !=' => 'deleted'])
+                ->where(['id NOT IN' => $hiddenRequestIds])
+                ->orderDesc('created_at')
+                ->orderDesc('id');
+            $this->applyExportDateFilter($query, $exportMode, $exportDate);
+            $requests = $query->all();
+        }
+
+        $emails = [];
+        foreach ($requests as $request) {
+            if (empty($request->name) && !empty($request->email)) {
+                $emails[] = $request->email;
+            }
+        }
+
+        if ($emails) {
+            try {
+                $this->loadModel('Students');
+                $students = $this->Students->find()
+                    ->select(['email', 'firstname', 'middlename', 'lastname'])
+                    ->where(['email IN' => array_values(array_unique($emails))])
+                    ->all();
+
+                $emailToName = [];
+                foreach ($students as $student) {
+                    $parts = array_filter([
+                        $student->firstname ?? null,
+                        $student->middlename ?? null,
+                        $student->lastname ?? null,
+                    ]);
+                    $fullName = trim(implode(' ', $parts));
+                    if ($fullName !== '') {
+                        $emailToName[$student->email] = $fullName;
+                    }
+                }
+
+                foreach ($requests as $request) {
+                    if (empty($request->name) && !empty($request->email)) {
+                        $request->display_name = $emailToName[$request->email] ?? null;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore if students table isn't available.
+            }
+        }
+
+        $adminApprovalStatus = [];
+        $requestSummaries = [];
+        if ($adminId > 0 && !empty($requests)) {
+            try {
+                $this->loadModel('RequestApprovals');
+                $requestIds = [];
+                foreach ($requests as $req) {
+                    if (!empty($req->id)) {
+                        $requestIds[] = $req->id;
+                    }
+                }
+                if (!empty($requestIds)) {
+                    $rows = $this->RequestApprovals->find()
+                        ->select(['request_id', 'status'])
+                        ->where([
+                            'request_id IN' => $requestIds,
+                            'admin_user_id' => $adminId,
+                        ])
+                        ->enableHydration(false)
+                        ->all()
+                        ->toArray();
+                    foreach ($rows as $row) {
+                        $rid = (int)($row['request_id'] ?? 0);
+                        if (!$rid) {
+                            continue;
+                        }
+                        $adminApprovalStatus[$rid] = $row['status'] ?? null;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore if approvals table isn't available.
+            }
+        }
+
+        foreach ($requests as $request) {
+            $detailsSource = $request->details;
+            if ($detailsSource === null || trim((string)$detailsSource) === '') {
+                $detailsSource = $request->message ?? '';
+            }
+            $fields = $this->extractFieldsFromDetails((string)$detailsSource);
+            $requestSummaries[$request->id] = [
+                'pmis_activity_code' => $fields['PMIS Activity Code'] ?? '',
+                'title_of_activity' => $fields['Title of Activity'] ?? ($request->title ?? ''),
+                'activity_schedule' => $fields['Activity Schedule'] ?? '',
+                'budget_requirement' => $fields['Budget Requirement'] ?? '',
+                'source_of_fund' => $fields['Source of Fund'] ?? '',
+                'grand_total' => $fields['Grand Total'] ?? '',
+                'attachment_sub_aro' => $fields['Attachment SUB-ARO'] ?? '',
+                'attachment_sfwp' => $fields['Attachment SFWP'] ?? '',
+                'attachment_ar' => $fields['Attachment AR'] ?? '',
+                'attachment_ac' => $fields['Attachment AC'] ?? '',
+                'attachment_list_participants' => $fields['Attachment List of Participants'] ?? '',
+            ];
+        }
+
+        return [$requests, $requestSummaries, $adminApprovalStatus];
+    }
+
+    private function applyExportDateFilter($query, string $exportMode, string $exportDate): void
+    {
+        $mode = strtolower(trim($exportMode));
+        $date = trim($exportDate);
+        if ($mode === '' || $date === '') {
+            return;
+        }
+        if ($mode === 'day') {
+            $dt = \DateTime::createFromFormat('Y-m-d', $date);
+            if (!$dt) {
+                return;
+            }
+            $start = $dt->format('Y-m-d 00:00:00');
+            $end = $dt->format('Y-m-d 23:59:59');
+        } elseif ($mode === 'month') {
+            $dt = \DateTime::createFromFormat('Y-m', $date);
+            if (!$dt) {
+                return;
+            }
+            $start = $dt->format('Y-m-01 00:00:00');
+            $end = $dt->format('Y-m-t 23:59:59');
+        } elseif ($mode === 'year') {
+            if (!preg_match('/^\d{4}$/', $date)) {
+                return;
+            }
+            $start = $date . '-01-01 00:00:00';
+            $end = $date . '-12-31 23:59:59';
+        } else {
+            return;
+        }
+        $query->where(function ($exp) use ($start, $end) {
+            return $exp->between('created_at', $start, $end);
+        });
     }
 
     private function ensureAdmin()

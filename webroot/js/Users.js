@@ -13,6 +13,8 @@ $(function () {
             $('#users-form')
                 .children('label, input, select, textarea, .form-group')
                 .show();
+            $('#esignature-preview').attr('src', '');
+            $('#esignature-preview-wrap').hide();
             $('#password').val('');
             $('#reset-email').val('');
         } else {
@@ -73,6 +75,14 @@ $(function () {
                     $('#section-unit-manage').val(data.section_unit || '');
                     $('#role-manage').val(data.role);
                     $('#id').val(data.id);
+                    var esignaturePath = normalizeEsignaturePath(data.esignature || '');
+                    if (esignaturePath) {
+                        $('#esignature-preview').attr('src', esignaturePath);
+                        $('#esignature-preview-wrap').show();
+                    } else {
+                        $('#esignature-preview').attr('src', '');
+                        $('#esignature-preview-wrap').hide();
+                    }
                     $('#manage-password-fields').hide();
                     resetMode = false;
                     $('#reset-mode').val('0');
@@ -123,6 +133,8 @@ $(function () {
                     $('#section-unit-manage').val(data.section_unit || '');
                     $('#role-manage').val(data.role);
                     $('#id').val(data.id);
+                    $('#esignature-preview').attr('src', '');
+                    $('#esignature-preview-wrap').hide();
                     $('#manage-password-fields').show();
                     resetMode = true;
                     $('#reset-mode').val('1');
@@ -343,6 +355,8 @@ $(function () {
 
     $('#users-modal').on('hidden.bs.modal', function () {
         if (!isEnroll) {
+            $('#esignature-preview').attr('src', '');
+            $('#esignature-preview-wrap').hide();
             return;
         }
         var form = $('#users-form')[0];
@@ -373,6 +387,30 @@ $(function () {
         $('#original-username').val('');
     });
 });
+
+function normalizeEsignaturePath(path) {
+    if (!path) {
+        return '';
+    }
+    var p = String(path).replace(/\\/g, '/');
+    var uploadsIdx = p.indexOf('/uploads/');
+    if (uploadsIdx >= 0) {
+        p = p.substring(uploadsIdx + 1);
+    }
+    if (p.indexOf('/usermngt/') === 0) {
+        return p;
+    }
+    if (p.indexOf('usermngt/') === 0) {
+        return '/' + p;
+    }
+    if (p.indexOf('/') === 0) {
+        p = p.substring(1);
+    }
+    if (p.indexOf('uploads/') === 0) {
+        return '/usermngt/' + p;
+    }
+    return '/usermngt/' + p;
+}
 
 function buildDisplayName(data) {
     var parts = [];

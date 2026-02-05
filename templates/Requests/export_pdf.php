@@ -12,6 +12,51 @@ $pageTitle = $pageTitle ?? 'Activity Proposal';
 $proponentName = $proponentName ?? '';
 $proponentDegree = $proponentDegree ?? '';
 $proponentPosition = $proponentPosition ?? '';
+$proponentEsignature = $proponentEsignature ?? '';
+$approverSignatures = $approverSignatures ?? [];
+$proponentEsignatureSrc = '';
+if ($proponentEsignature !== '') {
+    $proponentEsignatureSrc = str_replace('\\', '/', (string)$proponentEsignature);
+    $uploadsPos = strpos($proponentEsignatureSrc, '/uploads/');
+    if ($uploadsPos !== false) {
+        $proponentEsignatureSrc = ltrim(substr($proponentEsignatureSrc, $uploadsPos), '/');
+    }
+    $proponentEsignatureSrc = ltrim($proponentEsignatureSrc, '/');
+}
+$proponentEsignatureUrl = '';
+if ($proponentEsignatureSrc !== '') {
+    $proponentEsignatureUrl = $this->Url->build('/' . $proponentEsignatureSrc, ['fullBase' => true]);
+}
+if (!function_exists('_signature_url')) {
+    function _signature_url($path, $urlHelper) {
+        $src = str_replace('\\', '/', (string)$path);
+        $uploadsPos = strpos($src, '/uploads/');
+        if ($uploadsPos !== false) {
+            $src = ltrim(substr($src, $uploadsPos), '/');
+        }
+        $src = ltrim($src, '/');
+        if ($src === '') {
+            return '';
+        }
+        return $urlHelper->build('/' . $src, ['fullBase' => true]);
+    }
+}
+if (!function_exists('_approver_signature_urls')) {
+    function _approver_signature_urls($signatures, $urlHelper) {
+        $order = ['po', 'smmne', 'ao', 'budget', 'accountant'];
+        $urls = [];
+        foreach ($order as $key) {
+            if (empty($signatures[$key])) {
+                continue;
+            }
+            $url = _signature_url($signatures[$key], $urlHelper);
+            if ($url !== '') {
+                $urls[] = $url;
+            }
+        }
+        return $urls;
+    }
+}
 
 $detailsText = trim((string)($requestEntity->details ?? $requestEntity->message ?? ''));
 $fields = [];
@@ -148,9 +193,10 @@ body {
 .sheet {
     width: min(900px, 100%);
     margin: 16px auto;
-    padding: 24px 28px 32px;
+    padding: 24px 28px 140px;
     background: #fff;
     border: 1px solid #2b2b2b;
+    position: relative;
 }
 .proposal-title {
     text-align: center;
@@ -362,7 +408,13 @@ body {
             </tr>
             <tr>
                 <td class="label">Monitoring & Evaluation:</td>
-                <td class="proposal-value"><?= h(_req_field($fields, 'Monitoring & Evaluation')) ?></td>
+                <?php
+                    $monitoringEval = (string)_req_field($fields, 'Monitoring & Evaluation');
+                    if ($monitoringEval !== '') {
+                        $monitoringEval = str_replace('ARCADIO L. MODUMO', 'ARCADIO L. MODUMO JR.', $monitoringEval);
+                    }
+                ?>
+                <td class="proposal-value"><?= h($monitoringEval) ?></td>
             </tr>
         </tbody>
     </table>
@@ -426,76 +478,64 @@ body {
                 <th class="section" colspan="2">Part III. Review and Certification</th>
             </tr>
         </thead>
-        <tbody>
-            <tr>
-                <td>
-                    <div>Requested by:</div>
-                    <div class="signature-block" style="margin-top: 24px;">
-                        <div class="name"><?= h($proponentName ?: 'FULL NAME OF USER') ?></div>
-                        <?php if ($proponentDegree !== ''): ?>
-                            <div><?= h($proponentDegree) ?></div>
-                        <?php endif; ?>
-                        <?php if ($proponentPosition !== ''): ?>
-                            <div><?= h($proponentPosition) ?></div>
-                        <?php endif; ?>
-                        <div>Proponent</div>
-                    </div>
-                </td>
-                <td>
-                    <div>Reviewed as to AIP/WFP/PMIS:</div>
-                    <div class="signature-block" style="margin-top: 16px;">
-                        <div class="name">MARFIL A. DULAY LPT</div>
-                        <div>Planning Officer III</div>
-                    </div>
-                    <div class="signature-block" style="margin-top: 18px ;">
-                        <div class="name">SHIRLYN R. MACASPAC PhD</div>
-                        <div>SMM&E</div>
-                    </div>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <div>Attested:</div>
-                    <div class="signature-block" style="margin-top: 24px;">
-                        <div class="name">LEONIDA F. CULANG MPA</div>
-                        <div>Administrative Officer V, Admin</div>
-                    </div>
-                </td>
-                <td>
-                    <div>Certified as to availability of funds:</div>
-                    <div class="signature-block" style="margin-top: 16px;">
-                        <div class="name">ERIK A. PALOMARES</div>
-                        <div>Administrative Officer V</div>
-                    </div>
-                    <div class="signature-block" style="margin-top: 18px;">
-                        <div class="name">CHERRY ANN R. SEGUNDO CPA</div>
-                        <div>Accountant III</div>
-                    </div>
-                </td>
-            </tr>
-            <tr>
-                <td colspan="2">
-                    <div>Recommending Approval:</div>
-                    <div class="signature-block" style="margin-top: 24px;">
-                        <div class="name">JACQUELINE S. RAMOS PhD, CESE</div>
-                        <div>Assistant Schools Division Superintendent</div>
-                    </div>
-                </td>
-            </tr>
-            <tr>
-                <td colspan="2">
-                    <div>Approved:</div>
-                    <div class="signature-block" style="margin-top: 24px;">
-                        <div class="name">ALFREDO B. GUMARU JR. EdD CESO V</div>
-                        <div>Schools Division Superintendent</div>
-                    </div>
-                </td>
-            </tr>
-        </tbody>
+          <tbody>
+              <tr>
+                  <td colspan="2">
+                      <div>Requested by:</div>
+                      <div class="signature-block" style="margin-top: -10px; margin-bottom: 10px;">
+                          <?php if ($proponentEsignatureUrl !== ''): ?>
+                              <div style="margin-bottom: -20px;">
+                                  <?= $this->Html->image($proponentEsignatureUrl, [
+                                      'alt' => '',
+                                      'style' => 'max-width: 220px; max-height: 90px; height: auto;',
+                                  ]) ?>
+                              </div>
+                          <?php endif; ?>
+                          <div class="name"><?= h($proponentName ?: 'FULL NAME OF USER') ?></div>
+                          <?php if ($proponentDegree !== ''): ?>
+                              <div><?= h($proponentDegree) ?></div>
+                          <?php endif; ?>
+                          <?php if ($proponentPosition !== ''): ?>
+                              <div><?= h($proponentPosition) ?></div>
+                          <?php endif; ?>
+                          <div>Proponent</div>
+                      </div>
+                  </td>
+              </tr>
+              <tr>
+                  <td colspan="2">
+                      <div>Recommending Approval:</div>
+                      <div class="signature-block" style="margin-top: 50px; margin-bottom: 10px;">
+                          <div class="name">JACQUELINE S. RAMOS PhD, CESE</div>
+                          <div>Assistant Schools Division Superintendent</div>
+                          <?php
+                              $approverUrls = _approver_signature_urls($approverSignatures, $this->Url);
+                          ?>
+                          <?php if (!empty($approverUrls)): ?>
+                              <div style="margin-top: 6px;">
+                                  <?php foreach ($approverUrls as $url): ?>
+                                      <img src="<?= h($url) ?>" alt="" style="max-width: 50px; max-height: 60px; height: auto; margin: 2px 4px;">
+                                  <?php endforeach; ?>
+                              </div>
+                          <?php endif; ?>
+                      </div>
+                  </td>
+              </tr>
+              <tr>
+                  <td colspan="2">
+                      <div>Approved:</div>
+                      <div class="signature-block" style="margin-top: 50px; margin-bottom: 10px;">
+                          <div class="name">ALFREDO B. GUMARU JR. EdD CESO V</div>
+                          <div>Schools Division Superintendent</div>
+                      </div>
+                  </td>
+              </tr>
+          </tbody>
     </table>
-            __________________________________________________________________________________________________________
+__________________________________________________________________________________________________________
 
-    <div class="proposal-footer">
+  <div class="print-footer">
+    <div class="proposal-footer" style="margin-top:0; padding-top:0;">
         <div class="footer-content">
             <div class="footer-logos">
                 <?= $this->Html->image('footer.jpg', [

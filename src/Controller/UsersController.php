@@ -82,7 +82,30 @@ class UsersController extends AppController
         if ($this->request->is('post')) {
             $data = $this->request->getData();
             $schema = $this->Users->getSchema();
-            foreach (['id_number','first_name','middle_initial','last_name','suffix','degree','rank','position','email_address','office','section_unit'] as $field) {
+            $rawEsignature = $data['esignature'] ?? null;
+            if ($rawEsignature instanceof \Psr\Http\Message\UploadedFileInterface && !$schema->hasColumn('esignature')) {
+                $result = [
+                    'status' => 'error',
+                    'message' => 'E-signature column is missing. Please add `esignature` to the users table.',
+                ];
+                return $this->response->withType('application/json')
+                    ->withStringBody(json_encode($result));
+            }
+            $esignatureError = null;
+            $esignatureUpload = null;
+            if ($schema->hasColumn('esignature')) {
+                $esignatureUpload = $this->extractEsignatureUpload($data, $esignatureError);
+                if ($esignatureError !== null) {
+                    $result = [
+                        'status' => 'error',
+                        'message' => $esignatureError,
+                    ];
+                    return $this->response->withType('application/json')
+                        ->withStringBody(json_encode($result));
+                }
+            }
+            unset($data['esignature']);
+            foreach (['id_number','first_name','middle_initial','last_name','suffix','degree','rank','position','email_address','office','section_unit','esignature'] as $field) {
                 if (!$schema->hasColumn($field)) {
                     unset($data[$field]);
                 }
@@ -91,6 +114,18 @@ class UsersController extends AppController
             $user = $this->Users->patchEntity($user, $data);
 
             if ($this->Users->save($user)) {
+                if ($esignatureUpload instanceof \Psr\Http\Message\UploadedFileInterface) {
+                    $esignaturePath = $this->storeEsignatureUpload($esignatureUpload, (int)$user->id);
+                    if ($esignaturePath === null) {
+                        $result = [
+                            'status' => 'error',
+                            'message' => 'Failed to store e-signature. Please, try again.',
+                        ];
+                        return $this->response->withType('application/json')
+                            ->withStringBody(json_encode($result));
+                    }
+                    $this->Users->updateAll(['esignature' => $esignaturePath], ['id' => $user->id]);
+                }
                 $result = ['status' => 'success', 'message' => 'The user has been saved.'];
             }else{
                 $errors = $user->getErrors();
@@ -176,7 +211,30 @@ class UsersController extends AppController
                 }
                 unset($data['reset_mode'], $data['reset_email']);
                 $schema = $this->Users->getSchema();
-                foreach (['id_number','first_name','middle_initial','last_name','suffix','degree','rank','position','email_address','office','section_unit'] as $field) {
+                $rawEsignature = $data['esignature'] ?? null;
+                if ($rawEsignature instanceof \Psr\Http\Message\UploadedFileInterface && !$schema->hasColumn('esignature')) {
+                    $result = [
+                        'status' => 'error',
+                        'message' => 'E-signature column is missing. Please add `esignature` to the users table.',
+                    ];
+                    return $this->response->withType('application/json')
+                        ->withStringBody(json_encode($result));
+                }
+                $esignatureError = null;
+                $esignatureUpload = null;
+                if ($schema->hasColumn('esignature')) {
+                    $esignatureUpload = $this->extractEsignatureUpload($data, $esignatureError);
+                    if ($esignatureError !== null) {
+                        $result = [
+                            'status' => 'error',
+                            'message' => $esignatureError,
+                        ];
+                        return $this->response->withType('application/json')
+                            ->withStringBody(json_encode($result));
+                    }
+                }
+                unset($data['esignature']);
+                foreach (['id_number','first_name','middle_initial','last_name','suffix','degree','rank','position','email_address','office','section_unit','esignature'] as $field) {
                     if (!$schema->hasColumn($field)) {
                         unset($data[$field]);
                     }
@@ -186,6 +244,18 @@ class UsersController extends AppController
                 }
                 $user = $this->Users->patchEntity($user, $data);
                 if ($this->Users->save($user)) {
+                    if ($esignatureUpload instanceof \Psr\Http\Message\UploadedFileInterface) {
+                        $esignaturePath = $this->storeEsignatureUpload($esignatureUpload, (int)$user->id);
+                        if ($esignaturePath === null) {
+                            $result = [
+                                'status' => 'error',
+                                'message' => 'Failed to store e-signature. Please, try again.',
+                            ];
+                            return $this->response->withType('application/json')
+                                ->withStringBody(json_encode($result));
+                        }
+                        $this->Users->updateAll(['esignature' => $esignaturePath], ['id' => $user->id]);
+                    }
                     $updateFields = [
                         'username',
                         'role',
@@ -533,6 +603,7 @@ class UsersController extends AppController
             'email_address',
             'office',
             'section_unit',
+            'esignature',
         ];
         $select = [];
         foreach ($fields as $field) {
@@ -541,5 +612,57 @@ class UsersController extends AppController
             }
         }
         return $select;
+    }
+
+    private function extractEsignatureUpload(array $data, ?string &$error = null): ?\Psr\Http\Message\UploadedFileInterface
+    {
+        $error = null;
+        $file = $data['esignature'] ?? null;
+        if (!$file instanceof \Psr\Http\Message\UploadedFileInterface) {
+            return null;
+        }
+        if ($file->getError() === UPLOAD_ERR_NO_FILE) {
+            return null;
+        }
+        if ($file->getError() !== UPLOAD_ERR_OK) {
+            $error = 'Failed to upload e-signature.';
+            return null;
+        }
+        $clientName = (string)$file->getClientFilename();
+        $ext = strtolower(pathinfo($clientName, PATHINFO_EXTENSION));
+        $allowed = ['png', 'jpg', 'jpeg'];
+        if ($ext === '' || !in_array($ext, $allowed, true)) {
+            $error = 'E-signature must be a PNG or JPG image.';
+            return null;
+        }
+        return $file;
+    }
+
+    private function storeEsignatureUpload(\Psr\Http\Message\UploadedFileInterface $file, int $userId): ?string
+    {
+        if ($userId <= 0) {
+            return null;
+        }
+        $clientName = (string)$file->getClientFilename();
+        $ext = strtolower(pathinfo($clientName, PATHINFO_EXTENSION));
+        if ($ext === '') {
+            $ext = 'png';
+        }
+        $filename = sprintf(
+            'esignature_%s_%s.%s',
+            date('Ymd_His'),
+            bin2hex(random_bytes(4)),
+            $ext
+        );
+        $directory = WWW_ROOT . 'uploads' . DS . 'esignatures' . DS . $userId;
+        if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+            return null;
+        }
+        try {
+            $file->moveTo($directory . DS . $filename);
+        } catch (\Throwable $e) {
+            return null;
+        }
+        return 'uploads/esignatures/' . $userId . '/' . $filename;
     }
 }

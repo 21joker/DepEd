@@ -55,6 +55,7 @@ class User extends Entity
         'email_address' => true,
         'office' => true,
         'section_unit' => true,
+        'esignature' => true,
         'created' => true,
         'modified' => true,
         'student' => true,

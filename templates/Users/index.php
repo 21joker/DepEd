@@ -82,7 +82,7 @@
                 </button>
             </div>
             <div class="modal-body">
-                <?= $this->Form->create($user,['id'=>'users-form'])?>
+                <?= $this->Form->create($user, ['id' => 'users-form', 'type' => 'file'])?>
                 <?php if ($isEnroll): ?>
                     <label>ID Number</label>
                     <?= $this->Form->control('id_number', [
@@ -198,6 +198,14 @@
                         'label' => false,
                         'type' => 'password',
                         'id' => 'retype-password-enroll'
+                    ]) ?>
+                    <label>Attach E-Signature</label>
+                    <?= $this->Form->control('esignature', [
+                        'type' => 'file',
+                        'class' => 'form-control',
+                        'label' => false,
+                        'accept' => '.png,.jpg,.jpeg',
+                        'id' => 'esignature-enroll'
                     ]) ?>
                     <div class="form-check mb-2">
                         <input class="form-check-input" type="checkbox" id="toggle-password-enroll">
@@ -315,6 +323,17 @@
                             'Superuser' => 'Superuser',
                         ]
                     ]) ?>
+                    <label>Attach E-Signature</label>
+                    <?= $this->Form->control('esignature', [
+                        'type' => 'file',
+                        'class' => 'form-control',
+                        'label' => false,
+                        'accept' => '.png,.jpg,.jpeg',
+                    ]) ?>
+                    <div id="esignature-preview-wrap" style="display:none; margin-top:6px;">
+                        <div style="font-size: 12px; margin-bottom: 4px;">Current E-Signature</div>
+                        <img id="esignature-preview" alt="E-Signature Preview" style="max-width: 180px; max-height: 80px; height: auto; border: 1px solid #d0d0d0; padding: 2px;">
+                    </div>
                     <div id="manage-password-fields">
                         <label>Email Address</label>
                         <?= $this->Form->control('reset_email', [

@@ -43,6 +43,13 @@ $cakeDescription = 'SDO ACTIVTITY';
     <style>
         :root {
             --sidebar-width: 250px;
+            --sidebar-bg: #111827;
+            --sidebar-bg-alt: #0b1220;
+            --sidebar-border: rgba(148, 163, 184, 0.18);
+            --sidebar-text: #e2e8f0;
+            --sidebar-muted: #94a3b8;
+            --sidebar-accent: #38bdf8;
+            --sidebar-accent-strong: #0ea5e9;
         }
         .sidebar-mini.sidebar-collapse {
             --sidebar-width: 4.6rem;
@@ -87,6 +94,77 @@ $cakeDescription = 'SDO ACTIVTITY';
         .main-sidebar .user-panel .info a span + span {
             font-size: 11px;
             opacity: 0.8;
+        }
+        .main-sidebar {
+            background: linear-gradient(180deg, var(--sidebar-bg) 0%, var(--sidebar-bg-alt) 100%);
+            border-right: 1px solid var(--sidebar-border);
+        }
+        .main-sidebar .brand-link {
+            background: transparent;
+            border-bottom: 1px solid var(--sidebar-border);
+            color: var(--sidebar-text);
+            font-weight: 600;
+            letter-spacing: 0.2px;
+        }
+        .main-sidebar .brand-link .brand-text {
+            color: var(--sidebar-text);
+        }
+        .main-sidebar .brand-link .brand-image {
+            border: 2px solid rgba(56, 189, 248, 0.35);
+            padding: 2px;
+            background: rgba(15, 23, 42, 0.4);
+        }
+        .main-sidebar .user-panel {
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+        .main-sidebar .user-panel .info a {
+            color: var(--sidebar-text);
+        }
+        .main-sidebar .user-panel .info a span + span {
+            color: var(--sidebar-muted);
+            opacity: 1;
+        }
+        .main-sidebar .nav-sidebar .nav-link {
+            color: var(--sidebar-text);
+            border-radius: 10px;
+            margin: 4px 10px;
+            padding: 10px 12px;
+            transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .main-sidebar .nav-sidebar .nav-link .nav-icon {
+            color: var(--sidebar-muted);
+            margin-right: 8px;
+        }
+        .main-sidebar .nav-sidebar .nav-link:hover {
+            background: rgba(56, 189, 248, 0.12);
+            color: #ffffff;
+        }
+        .main-sidebar .nav-sidebar .nav-link:hover .nav-icon {
+            color: var(--sidebar-accent);
+        }
+        .main-sidebar .nav-sidebar .nav-link.active {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(14, 165, 233, 0.15));
+            color: #ffffff;
+            box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.3), 0 10px 18px rgba(2, 132, 199, 0.2);
+        }
+        .main-sidebar .nav-sidebar .nav-link.active .nav-icon {
+            color: var(--sidebar-accent-strong);
+        }
+        .main-sidebar .nav-sidebar .nav-header {
+            color: var(--sidebar-muted);
+            letter-spacing: 0.6px;
+        }
+        .main-sidebar .sidebar-custom {
+            border-top: 1px solid var(--sidebar-border);
+        }
+        .main-sidebar .sidebar-custom .btn {
+            border-color: rgba(148, 163, 184, 0.4);
+            color: var(--sidebar-text);
+        }
+        .main-sidebar .sidebar-custom .btn:hover {
+            background: rgba(56, 189, 248, 0.18);
+            color: #ffffff;
+            border-color: rgba(56, 189, 248, 0.6);
         }
         table.dataTable > thead .sorting:before,
         table.dataTable > thead .sorting_asc:before,

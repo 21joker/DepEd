@@ -161,6 +161,33 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
 <div class="col-12 p-0">
   <div class="card">
     <div class="card-header">
+      <?php
+        $exportMode = (string)($this->request->getQuery('export_mode') ?? 'month');
+        $exportDate = (string)($this->request->getQuery('export_date') ?? '');
+        if ($exportMode === '') {
+            $exportMode = 'month';
+        }
+      ?>
+      <div class="d-flex align-items-center">
+        <div class="d-flex align-items-center mr-3">
+          <select id="export-mode" class="form-control form-control-sm mr-2" style="width: 110px;">
+            <option value="day" <?= $exportMode === 'day' ? 'selected' : '' ?>>Day</option>
+            <option value="month" <?= $exportMode === 'month' ? 'selected' : '' ?>>Month</option>
+            <option value="year" <?= $exportMode === 'year' ? 'selected' : '' ?>>Year</option>
+          </select>
+          <input id="export-date" class="form-control form-control-sm" value="<?= h($exportDate) ?>" style="width: 160px;" placeholder="Select date">
+        </div>
+        <a class="btn btn-danger btn-sm mr-2" target="_blank" rel="noopener"
+           href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'exportAllPdf'], ['fullBase' => true]) ?>"
+           id="export-pdf-btn">
+          Export PDF
+        </a>
+        <a class="btn btn-outline-success btn-sm mr-3"
+           href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'exportAllExcel'], ['fullBase' => true]) ?>"
+           id="export-excel-btn">
+          Export Excel
+        </a>
+      </div>
       <h3 class="card-title">&nbsp;</h3>
       <div class="card-tools d-flex align-items-center">
         <?php if (!empty($headerBadge)): ?>
@@ -208,7 +235,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                       <th>SUB-ARO</th>
                       <th>S/WFP</th>
                       <th>AR</th>
-                      <th>AC</th>
+                      <th>ATC</th>
                       <th>List of Participants</th>
               <th style="width: 12%;">Submitted</th>
               <th style="width: 12%;">Last Updated</th>
@@ -371,6 +398,60 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
     </div>
   </div>
 </div>
+
+<script>
+  (function () {
+    var modeSelect = document.getElementById('export-mode');
+    var dateInput = document.getElementById('export-date');
+    var pdfBtn = document.getElementById('export-pdf-btn');
+    var excelBtn = document.getElementById('export-excel-btn');
+
+    function updateInputType() {
+      var mode = modeSelect.value;
+      if (mode === 'day') {
+        dateInput.type = 'date';
+        dateInput.placeholder = 'YYYY-MM-DD';
+      } else if (mode === 'month') {
+        dateInput.type = 'month';
+        dateInput.placeholder = 'YYYY-MM';
+      } else {
+        dateInput.type = 'number';
+        dateInput.placeholder = 'YYYY';
+        dateInput.min = '2000';
+        dateInput.max = '2100';
+      }
+    }
+
+    function buildUrl(baseHref) {
+      var url = new URL(baseHref, window.location.origin);
+      var mode = modeSelect.value || 'month';
+      var date = dateInput.value || '';
+      if (mode) {
+        url.searchParams.set('export_mode', mode);
+      }
+      if (date) {
+        url.searchParams.set('export_date', date);
+      }
+      return url.toString();
+    }
+
+    function updateLinks() {
+      pdfBtn.href = buildUrl(pdfBtn.href.split('?')[0]);
+      excelBtn.href = buildUrl(excelBtn.href.split('?')[0]);
+    }
+
+    updateInputType();
+    updateLinks();
+
+    modeSelect.addEventListener('change', function () {
+      updateInputType();
+      dateInput.value = '';
+      updateLinks();
+    });
+    dateInput.addEventListener('change', updateLinks);
+    dateInput.addEventListener('keyup', updateLinks);
+  })();
+</script>
 
 <div class="modal fade" id="review-modal" tabindex="-1" role="dialog" aria-hidden="true">
   <div class="modal-dialog" role="document">
