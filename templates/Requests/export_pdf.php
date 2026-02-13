@@ -498,7 +498,6 @@ body {
                           <?php if ($proponentPosition !== ''): ?>
                               <div><?= h($proponentPosition) ?></div>
                           <?php endif; ?>
-                          <div>Proponent</div>
                       </div>
                   </td>
               </tr>

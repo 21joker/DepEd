@@ -50,6 +50,18 @@ function _format_status_time($value): string {
   return trim((string)$value);
 }
 
+function _time_to_ts($value): ?int {
+  if ($value instanceof \DateTimeInterface) {
+    return $value->getTimestamp();
+  }
+  $raw = trim((string)$value);
+  if ($raw === '') {
+    return null;
+  }
+  $ts = strtotime($raw);
+  return $ts === false ? null : $ts;
+}
+
 $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests);
 ?>
 
@@ -231,9 +243,10 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
               <th>Activity Schedule</th>
               <th>Budget Requirement</th>
               <th>Source of Fund</th>
-              <th>Grand Total</th>
+                      <th>Grand Total</th>
                       <th>SUB-ARO</th>
                       <th>S/WFP</th>
+                      <th>WFP</th>
                       <th>AR</th>
                       <th>ATC</th>
                       <th>List of Participants</th>
@@ -249,7 +262,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
           <tbody>
 <?php if (!$hasRequests): ?>
               <tr>
-                <td colspan="<?= $showStatus ? 14 : 13 ?>" class="text-center text-muted">No requests found.</td>
+                <td colspan="<?= $showStatus ? 17 : 16 ?>" class="text-center text-muted">No requests found.</td>
               </tr>
             <?php endif; ?>
 
@@ -264,6 +277,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                 $grand = trim((string)($summary['grand_total'] ?? ''));
                 $subAro = trim((string)($summary['attachment_sub_aro'] ?? ''));
                 $sfwp = trim((string)($summary['attachment_sfwp'] ?? ''));
+                $wfpCode = trim((string)($summary['wfp_code'] ?? ''));
                 $ar = trim((string)($summary['attachment_ar'] ?? ''));
                 $acAttach = trim((string)($summary['attachment_ac'] ?? ''));
                 $participantsList = trim((string)($summary['attachment_list_participants'] ?? ''));
@@ -301,6 +315,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                     <?= $sfwp !== '' ? h($sfwp) : 'N/A' ?>
                   <?php endif; ?>
                 </td>
+                <td><?= $wfpCode !== '' ? h($wfpCode) : 'N/A' ?></td>
                 <td>
                   <?php if ($ar !== '' && ($link = $buildFileLink($ar))): ?>
                     <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener"><?= h($link['name']) ?></a>
@@ -332,12 +347,41 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                       $status = $adminApprovalStatus[$request->id] ?? 'pending';
                       $meta = $adminApprovalMeta[$request->id] ?? [];
                       $statusAt = $meta['created'] ?? null;
-                      $label = $status === 'approved' ? 'Approved' : ($status === 'declined' ? 'Review' : 'Pending');
-                      $badge = _approval_badge($status);
-                      $statusAtLabel = $statusAt ? _format_status_time($statusAt) : '';
+                      $userUpdatedAt = $request->user_updated_at ?? null;
+                      $createdAt = $request->created_at ?? $request->created ?? null;
+                      $userUpdatedTs = _time_to_ts($userUpdatedAt);
+                      $createdTs = _time_to_ts($createdAt);
+                      $statusAtTs = _time_to_ts($statusAt);
+                      $isUpdated = false;
+                      if ($userUpdatedTs !== null) {
+                        if ($statusAtTs !== null) {
+                          $isUpdated = $userUpdatedTs > ($statusAtTs + 5);
+                        } elseif ($createdTs !== null) {
+                          $isUpdated = $userUpdatedTs > ($createdTs + 5);
+                        } else {
+                          $isUpdated = true;
+                        }
+                      }
+                      if ($status === 'approved') {
+                        $label = 'Approved';
+                        $badge = _approval_badge($status);
+                      } elseif ($isUpdated) {
+                        $label = 'Updated';
+                        $badge = 'badge-warning';
+                      } elseif ($status === 'declined') {
+                        $label = 'Review';
+                        $badge = _approval_badge($status);
+                      } else {
+                        $label = 'Pending';
+                        $badge = _approval_badge($status);
+                      }
+                      $statusAtLabel = $isUpdated
+                        ? _format_status_time($userUpdatedAt)
+                        : ($statusAt ? _format_status_time($statusAt) : '');
+                      $showStatusTime = ($statusAtLabel !== '' && ($isUpdated || $status !== 'pending'));
                     ?>
                     <span class="badge <?= h($badge) ?>"><?= h($label) ?></span>
-                    <?php if ($status !== 'pending' && $statusAtLabel !== ''): ?>
+                    <?php if ($showStatusTime): ?>
                       <span class="text-muted small ml-2">
                         <?= h($statusAtLabel) ?>
                       </span>

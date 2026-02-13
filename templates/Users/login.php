@@ -5,7 +5,7 @@
                 <video class="login-logo-video" autoplay muted loop playsinline>
                     <source src="img/sdo.mp4" type="video/mp4">
                 </video>
-                <h1 class="login-title">SDO SANTIAGO CITY PROPOSAL</h1>
+                <h1 class="login-title">ONLINE ACTIVITY PROPOSAL AND APPROVAL SYSTEM</h1>
                 <p class="login-subtitle">Sign in to continue</p>
             </div>
 
@@ -36,6 +36,9 @@
 
             <div class="login-forgot">
                 <a href="#" data-toggle="modal" data-target="#forgot-modal">Forgot Password?</a>
+            </div>
+            <div class="login-signup text-center mt-2">
+                Don't have an account? <a href="<?= $this->Url->build(['controller' => 'Users', 'action' => 'register']) ?>">Sign Up</a>
             </div>
         </div>
     </div>

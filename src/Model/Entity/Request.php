@@ -20,6 +20,7 @@ use Cake\ORM\Entity;
  * @property int $approvals_count
  * @property \Cake\I18n\FrozenTime $created_at
  * @property \Cake\I18n\FrozenTime $updated_at
+ * @property \Cake\I18n\FrozenTime|null $user_updated_at
  */
 class Request extends Entity
 {
@@ -35,5 +36,6 @@ class Request extends Entity
         'approvals_count' => true,
         'created_at' => true,
         'updated_at' => true,
+        'user_updated_at' => true,
     ];
 }

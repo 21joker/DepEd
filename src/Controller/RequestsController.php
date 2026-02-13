@@ -119,6 +119,7 @@ class RequestsController extends AppController
                 'Budget Requirement' => 'budget_requirement',
                 'Source of Fund' => 'source_of_fund',
                 'Grand Total' => 'grand_total',
+                'WFP' => 'wfp_code',
             ];
 
             foreach ($detailsMap as $label => $key) {
@@ -308,6 +309,9 @@ class RequestsController extends AppController
         $userRequests = [];
         $requestSummaries = [];
         $declinedRequestIds = [];
+        $reviewedByRequest = [];
+        $reviewedLatestByRequest = [];
+        $approvalLatestByRequest = [];
         $requestStatusById = [];
         $userCounts = ['total' => 0, 'approved' => 0, 'pending' => 0];
         $showForm = $this->request->is(['post', 'put', 'patch']) || $requestEntity->hasErrors();
@@ -338,6 +342,7 @@ class RequestsController extends AppController
                     'budget_requirement' => $fields['Budget Requirement'] ?? '',
                     'source_of_fund' => $fields['Source of Fund'] ?? '',
                     'grand_total' => $fields['Grand Total'] ?? '',
+                    'wfp_code' => $fields['WFP'] ?? '',
                     'attachment_sub_aro' => $fields['Attachment SUB-ARO'] ?? '',
                     'attachment_sfwp' => $fields['Attachment SFWP'] ?? '',
                     'attachment_ar' => $fields['Attachment AR'] ?? '',
@@ -354,19 +359,60 @@ class RequestsController extends AppController
                     $this->loadModel('RequestApprovals');
                     $declinedRequestIds = [];
                     $approvalRows = $this->RequestApprovals->find()
-                        ->select(['request_id', 'status'])
+                        ->select(['request_id', 'status', 'created'])
                         ->where(['request_id IN' => $requestIds])
                         ->enableHydration(false)
                         ->all();
                     foreach ($approvalRows as $row) {
+                        $requestId = (int)($row['request_id'] ?? 0);
                         $status = strtolower(trim((string)($row['status'] ?? '')));
-                        if ($status === 'declined') {
-                            $declinedRequestIds[] = (int)($row['request_id'] ?? 0);
+                        if (in_array($status, ['declined', 'review', 'rejected'], true)) {
+                            $declinedRequestIds[] = $requestId;
+                            $reviewedByRequest[$requestId] = true;
+                        }
+                        $createdRaw = $row['created'] ?? null;
+                        if ($requestId && !empty($createdRaw)) {
+                            $createdTs = strtotime((string)$createdRaw);
+                            if ($createdTs !== false) {
+                                if (!isset($approvalLatestByRequest[$requestId]) || $createdTs > ($approvalLatestByRequest[$requestId]['ts'] ?? 0)) {
+                                    $approvalLatestByRequest[$requestId] = [
+                                        'value' => $createdRaw,
+                                        'ts' => $createdTs,
+                                    ];
+                                }
+                                if (in_array($status, ['declined', 'review', 'rejected'], true)) {
+                                    if (!isset($reviewedLatestByRequest[$requestId]) || $createdTs > ($reviewedLatestByRequest[$requestId]['ts'] ?? 0)) {
+                                        $reviewedLatestByRequest[$requestId] = [
+                                            'value' => $createdRaw,
+                                            'ts' => $createdTs,
+                                        ];
+                                    }
+                                }
+                            }
                         }
                     }
                     $declinedRequestIds = array_values(array_unique(array_filter($declinedRequestIds)));
+                    if (empty($declinedRequestIds)) {
+                        $reviewRows = $this->RequestApprovals->find()
+                            ->select(['request_id', 'status'])
+                            ->where(['request_id IN' => $requestIds])
+                            ->enableHydration(false)
+                            ->all();
+                        foreach ($reviewRows as $row) {
+                            $requestId = (int)($row['request_id'] ?? 0);
+                            $status = strtolower(trim((string)($row['status'] ?? '')));
+                            if ($requestId && in_array($status, ['declined', 'review', 'rejected'], true)) {
+                                $declinedRequestIds[] = $requestId;
+                                $reviewedByRequest[$requestId] = true;
+                            }
+                        }
+                        $declinedRequestIds = array_values(array_unique(array_filter($declinedRequestIds)));
+                    }
                 } catch (\Throwable $e) {
                     $declinedRequestIds = [];
+                    $reviewedByRequest = [];
+                    $reviewedLatestByRequest = [];
+                    $approvalLatestByRequest = [];
                 }
             }
             $declinedLookup = !empty($declinedRequestIds)
@@ -377,7 +423,10 @@ class RequestsController extends AppController
                 if (!$requestId) {
                     continue;
                 }
-                $isDeclined = isset($declinedLookup[$requestId]);
+                $requestStatusLower = strtolower(trim((string)($request->status ?? '')));
+                $isDeclined = isset($declinedLookup[$requestId])
+                    || !empty($reviewedByRequest[$requestId])
+                    || in_array($requestStatusLower, ['declined', 'review', 'rejected'], true);
                 $isApproved = in_array($request->status ?? null, ['approved', 'Approved'], true)
                     || ((int)($request->approvals_needed ?? 0) > 0
                         && (int)($request->approvals_count ?? 0) >= (int)($request->approvals_needed ?? 0));
@@ -435,6 +484,9 @@ class RequestsController extends AppController
             'userRequests',
             'requestSummaries',
             'declinedRequestIds',
+            'reviewedByRequest',
+            'reviewedLatestByRequest',
+            'approvalLatestByRequest',
             'requestStatusById',
             'userCounts',
             'showForm',
@@ -559,6 +611,7 @@ class RequestsController extends AppController
                 'Budget Requirement' => 'budget_requirement',
                 'Source of Fund' => 'source_of_fund',
                 'Grand Total' => 'grand_total',
+                'WFP' => 'wfp_code',
             ];
 
             foreach ($detailsMap as $label => $key) {
@@ -701,6 +754,8 @@ class RequestsController extends AppController
                 $requestEntity->message = $detailsText;
             }
 
+            $requestEntity->user_updated_at = FrozenTime::now();
+
             if ($this->Requests->save($requestEntity)) {
                 $this->storeAttachmentUploads($attachmentUploads, (int)$requestEntity->id);
                 $this->Flash->success('Request updated.');
@@ -766,6 +821,7 @@ class RequestsController extends AppController
         $requestEntity->set('monitoring_evaluation', $fields['Monitoring & Evaluation'] ?? '');
         $requestEntity->set('budget_requirement', $fields['Budget Requirement'] ?? '');
         $requestEntity->set('grand_total', $fields['Grand Total'] ?? '');
+        $requestEntity->set('wfp_code', $fields['WFP'] ?? '');
 
         $schedule = $fields['Activity Schedule'] ?? '';
         if ($schedule !== '') {
@@ -1000,6 +1056,22 @@ class RequestsController extends AppController
             } catch (\Throwable $e) {
                 // Ignore if approvals table isn't available.
               }
+          }
+
+          if (($this->Auth->user('role') ?? '') !== 'Superuser') {
+              $approvedCount = 0;
+              foreach ($requests as $request) {
+                  $rid = (int)($request->id ?? 0);
+                  if (!$rid) {
+                      continue;
+                  }
+                  $status = strtolower(trim((string)($adminApprovalStatus[$rid] ?? 'pending')));
+                  if ($status === 'approved') {
+                      $approvedCount++;
+                  }
+              }
+              $counts['approved'] = $approvedCount;
+              $counts['pending'] = max(0, (is_countable($requests) ? count($requests) : 0) - $approvedCount);
           }
 
           foreach ($requests as $request) {
@@ -1332,7 +1404,7 @@ class RequestsController extends AppController
             }
         }
 
-          if ($proponentName === '' && !empty($requestEntity->user_id)) {
+          if (!empty($requestEntity->user_id)) {
               try {
                   $this->loadModel('Users');
                   try {
@@ -1357,21 +1429,29 @@ class RequestsController extends AppController
                       ->where(['id' => (int)$requestEntity->user_id])
                       ->first();
                   if ($user) {
-                    $parts = array_filter([
-                        $user->first_name ?? null,
-                        $user->middle_initial ?? null,
-                        $user->last_name ?? null,
-                    ]);
-                    $name = trim(implode(' ', $parts));
-                    if (!empty($user->suffix)) {
-                        $name = trim($name . ' ' . $user->suffix);
-                    }
-                    if ($name !== '') {
-                        $proponentName = $name;
+                      if ($proponentName === '') {
+                          $parts = array_filter([
+                              $user->first_name ?? null,
+                              $user->middle_initial ?? null,
+                              $user->last_name ?? null,
+                          ]);
+                          $name = trim(implode(' ', $parts));
+                          if (!empty($user->suffix)) {
+                              $name = trim($name . ' ' . $user->suffix);
+                          }
+                          if ($name !== '') {
+                              $proponentName = $name;
+                          }
                       }
-                      $proponentDegree = (string)($user->degree ?? '');
-                      $proponentPosition = (string)($user->position ?? '');
-                      $proponentEsignature = (string)($user->esignature ?? '');
+                      if ($proponentDegree === '') {
+                          $proponentDegree = (string)($user->degree ?? '');
+                      }
+                      if ($proponentPosition === '') {
+                          $proponentPosition = (string)($user->position ?? '');
+                      }
+                      if ($proponentEsignature === '') {
+                          $proponentEsignature = (string)($user->esignature ?? '');
+                      }
                   }
               } catch (\Throwable $e) {
                   // Ignore if users table isn't available.
@@ -1473,6 +1553,7 @@ class RequestsController extends AppController
             'Grand Total',
             'SUB-ARO',
             'S/WFP',
+            'WFP',
             'AR',
             'ATC',
             'List of Participants',
@@ -1499,6 +1580,7 @@ class RequestsController extends AppController
                 $summary['grand_total'] ?? '',
                 $summary['attachment_sub_aro'] ?? '',
                 $summary['attachment_sfwp'] ?? '',
+                $summary['wfp_code'] ?? '',
                 $summary['attachment_ar'] ?? '',
                 $summary['attachment_ac'] ?? '',
                 $summary['attachment_list_participants'] ?? '',
@@ -1996,6 +2078,7 @@ class RequestsController extends AppController
             'Budget Requirement',
             'Source of Fund',
             'Grand Total',
+            'WFP',
             'Attachment SUB-ARO',
             'Attachment SFWP',
             'Attachment AR',
@@ -2257,6 +2340,7 @@ class RequestsController extends AppController
                 'budget_requirement' => $fields['Budget Requirement'] ?? '',
                 'source_of_fund' => $fields['Source of Fund'] ?? '',
                 'grand_total' => $fields['Grand Total'] ?? '',
+                'wfp_code' => $fields['WFP'] ?? '',
                 'attachment_sub_aro' => $fields['Attachment SUB-ARO'] ?? '',
                 'attachment_sfwp' => $fields['Attachment SFWP'] ?? '',
                 'attachment_ar' => $fields['Attachment AR'] ?? '',
@@ -2350,10 +2434,23 @@ class RequestsController extends AppController
         }
         $pendingCount = $pendingQuery->count();
 
-        $approvedQuery = $this->Requests->find()
-            ->where(['status IN' => ['approved', 'Approved']]);
+        $role = $this->Auth->user('role');
+        if ($role === 'Approver' && $adminId > 0) {
+            $approvedQuery = $this->Requests->find()
+                ->where(['Requests.status !=' => 'deleted'])
+                ->matching('RequestApprovals', function ($q) use ($adminId) {
+                    return $q->where([
+                        'RequestApprovals.admin_user_id' => $adminId,
+                        'RequestApprovals.status' => 'approved',
+                    ]);
+                })
+                ->distinct(['Requests.id']);
+        } else {
+            $approvedQuery = $this->Requests->find()
+                ->where(['status IN' => ['approved', 'Approved']]);
+        }
         if (!empty($hiddenRequestIds)) {
-            $approvedQuery->where(['id NOT IN' => $hiddenRequestIds]);
+            $approvedQuery->where(['Requests.id NOT IN' => $hiddenRequestIds]);
         }
         $approvedCount = $approvedQuery->count();
 
@@ -2395,18 +2492,108 @@ class RequestsController extends AppController
         if ($scheduleField === null) {
             return $this->response
                 ->withType('json')
-                ->withStringBody('{"dates":[]}');
+                ->withStringBody('{"dates":[],"slots":[]}');
+        }
+
+        $selectFields = [$scheduleField, 'status'];
+        if ($schema->hasColumn('activity_schedule_rows')) {
+            $selectFields[] = 'activity_schedule_rows';
+        }
+        if ($schema->hasColumn('activity_schedule_dates')) {
+            $selectFields[] = 'activity_schedule_dates';
+        }
+        if ($schema->hasColumn('activity_schedule_time_from')) {
+            $selectFields[] = 'activity_schedule_time_from';
         }
 
         $rows = $this->Requests->find()
-            ->select([$scheduleField, 'status'])
+            ->select($selectFields)
             ->where(function ($exp) {
                 return $exp->notIn('status', ['declined', 'rejected', 'deleted']);
             })
             ->all();
 
         $dates = [];
+        $slots = [];
+        $slotKey = function (string $dateValue, string $slot): string {
+            return $dateValue . '__' . $slot;
+        };
+        $normalizeDate = function (string $value): ?string {
+            $value = trim($value);
+            if ($value === '') {
+                return null;
+            }
+            $dt = \DateTime::createFromFormat('Y-m-d', $value)
+                ?: \DateTime::createFromFormat('m/d/Y', $value)
+                ?: \DateTime::createFromFormat('n/j/Y', $value);
+            if (!$dt) {
+                return null;
+            }
+
+            return $dt->format('Y-m-d');
+        };
+        $slotFromTime = function (string $value): ?string {
+            $value = trim($value);
+            if ($value === '') {
+                return null;
+            }
+            if (!preg_match('/^\d{1,2}:\d{2}/', $value, $match)) {
+                return null;
+            }
+            $hour = (int)explode(':', $match[0])[0];
+
+            return $hour < 12 ? 'am' : 'pm';
+        };
+        $appendBooked = function (string $dateValue, ?string $slot = null) use (&$dates, &$slots, $slotKey): void {
+            $dates[] = $dateValue;
+            if ($slot === 'am' || $slot === 'pm') {
+                $slots[] = $slotKey($dateValue, $slot);
+            }
+        };
+
         foreach ($rows as $row) {
+            $hasStructuredSchedule = false;
+
+            if (property_exists($row, 'activity_schedule_rows')) {
+                $rawRows = $row->activity_schedule_rows;
+                if (is_string($rawRows)) {
+                    $decoded = json_decode($rawRows, true);
+                    if (is_array($decoded)) {
+                        $rawRows = $decoded;
+                    }
+                }
+                if (is_array($rawRows)) {
+                    foreach ($rawRows as $scheduleRow) {
+                        if (!is_array($scheduleRow)) {
+                            continue;
+                        }
+                        $dateValue = $normalizeDate((string)($scheduleRow['date'] ?? ''));
+                        if ($dateValue === null) {
+                            continue;
+                        }
+                        $slot = $slotFromTime((string)($scheduleRow['time_from'] ?? ''));
+                        $appendBooked($dateValue, $slot);
+                        $hasStructuredSchedule = true;
+                    }
+                }
+            }
+
+            if (property_exists($row, 'activity_schedule_dates')) {
+                $legacyDate = $normalizeDate((string)($row->activity_schedule_dates ?? ''));
+                if ($legacyDate !== null) {
+                    $legacySlot = null;
+                    if (property_exists($row, 'activity_schedule_time_from')) {
+                        $legacySlot = $slotFromTime((string)($row->activity_schedule_time_from ?? ''));
+                    }
+                    $appendBooked($legacyDate, $legacySlot);
+                    $hasStructuredSchedule = true;
+                }
+            }
+
+            if ($hasStructuredSchedule) {
+                continue;
+            }
+
             $message = (string)($row->{$scheduleField} ?? '');
             if ($message === '') {
                 continue;
@@ -2417,34 +2604,35 @@ class RequestsController extends AppController
             } elseif (preg_match('/Activity Schedule:\s*([^\r\n]+)/i', $message, $match)) {
                 $raw = trim($match[1] ?? '');
             }
-              if ($raw === '') {
-                  continue;
-              }
-              $matches = [];
-              preg_match_all('/\\b(\\d{1,2}\\/\\d{1,2}\\/\\d{4}|\\d{4}-\\d{2}-\\d{2})\\b/', $raw, $matches);
-              if (empty($matches[0])) {
-                  continue;
-              }
-              foreach ($matches[0] as $item) {
-                  $item = trim((string)$item);
-                  if ($item === '') {
-                      continue;
-                  }
-                  $dt = \DateTime::createFromFormat('m/d/Y', $item)
-                      ?: \DateTime::createFromFormat('n/j/Y', $item)
-                      ?: \DateTime::createFromFormat('Y-m-d', $item);
-                  if ($dt) {
-                      $dates[] = $dt->format('Y-m-d');
-                  }
-              }
+            if ($raw === '') {
+                continue;
+            }
+
+            $parts = preg_split('/\s*;\s*/', $raw) ?: [];
+            foreach ($parts as $part) {
+                if (!preg_match('/\\b(\\d{1,2}\\/\\d{1,2}\\/\\d{4}|\\d{4}-\\d{2}-\\d{2})\\b/', $part, $dateMatch)) {
+                    continue;
+                }
+                $dateValue = $normalizeDate((string)($dateMatch[1] ?? ''));
+                if ($dateValue === null) {
+                    continue;
+                }
+                $slot = null;
+                if (preg_match('/\\b(\\d{1,2}:\\d{2})\\b/', $part, $timeMatch)) {
+                    $slot = $slotFromTime((string)($timeMatch[1] ?? ''));
+                }
+                $appendBooked($dateValue, $slot);
+            }
         }
 
         $dates = array_values(array_unique($dates));
+        $slots = array_values(array_unique($slots));
         sort($dates);
+        sort($slots);
 
-        $payload = json_encode(['dates' => $dates]);
+        $payload = json_encode(['dates' => $dates, 'slots' => $slots]);
         return $this->response
             ->withType('json')
-            ->withStringBody($payload ?: '{"dates":[]}');
+            ->withStringBody($payload ?: '{"dates":[],"slots":[]}');
     }
 }

@@ -7,18 +7,50 @@
 #users-table td:last-child {
     display: none !important;
 }
+#middle-initial-enroll,
+#middle-initial-manage {
+    text-transform: uppercase;
+}
+.password-field {
+    position: relative;
+}
+.password-field .form-control {
+    padding-right: 2.5rem;
+}
+.password-toggle-btn {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: #6c757d;
+    padding: 0.25rem;
+    line-height: 1;
+}
+.password-toggle-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(31, 95, 191, 0.2);
+    border-radius: 999px;
+}
 #add.btn.btn-tool {
     background: #1f5fbf;
     color: #fff;
     border-radius: 999px;
-    width: 40px;
     height: 40px;
+    padding: 0 14px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border: 1px solid #1a4f9d;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
     transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    gap: 6px;
+}
+#add.btn.btn-tool .btn-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
 }
 #add.btn.btn-tool:hover {
     background: #1a54aa;
@@ -33,6 +65,21 @@
 </style>
 
 <div class="col-md-12">
+    <?php if (!$isEnroll): ?>
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="small-box bg-info">
+                <div class="inner">
+                    <h3><?= (int)($totalUsers ?? 0) ?></h3>
+                    <p>Total Number of User</p>
+                </div>
+                <div class="icon">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Users table</h3>
@@ -40,12 +87,14 @@
             <div class="card-tools">
                 <button id="add" type="button" class="btn btn-tool">
                     <i class="fas fa-plus"></i>
+                    <span class="btn-label">Add User</span>
                 </button>
             </div>
             <?php endif; ?>
         </div>
-        <div class="card-body">
-            <table id="users-table" class="table table-bordered table-striped" data-enroll="<?= $isEnroll ? '1' : '0' ?>">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table id="users-table" class="table table-sm table-bordered mb-0" data-enroll="<?= $isEnroll ? '1' : '0' ?>">
                 <thead>
                 <tr>
                     <?php if ($isEnroll): ?>
@@ -67,6 +116,7 @@
 
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 </div>
@@ -105,12 +155,14 @@
                         'label' => false,
                         'id' => 'first-name-enroll'
                     ]) ?>
-                    <label>M.I</label>
+                    <label>Middle Innitial</label>
                     <?= $this->Form->control('middle_initial', [
                         'class' => 'form-control',
-                        'placeholder' => 'M.I',
+                        'placeholder' => 'Middle Innitial',
                         'label' => false,
-                        'id' => 'middle-initial-enroll'
+                        'id' => 'middle-initial-enroll',
+                        'maxlength' => 2,
+                        'pattern' => '[A-Za-z]\\.?'
                     ]) ?>
                     <label>Last name</label>
                     <?= $this->Form->control('last_name', [
@@ -184,21 +236,31 @@
                         ]
                     ]) ?>
                     <label>Password</label>
-                    <?= $this->Form->control('password', [
-                        'class' => 'form-control',
-                        'placeholder' => 'Password',
-                        'label' => false,
-                        'type' => 'password',
-                        'id' => 'password-enroll'
-                    ]) ?>
+                    <div class="password-field">
+                        <?= $this->Form->control('password', [
+                            'class' => 'form-control',
+                            'placeholder' => 'Password',
+                            'label' => false,
+                            'type' => 'password',
+                            'id' => 'password-enroll'
+                        ]) ?>
+                        <button type="button" class="password-toggle-btn toggle-password" data-target="#password-enroll" aria-label="Show password">
+                            <i class="far fa-eye"></i>
+                        </button>
+                    </div>
                     <label>Retype Password</label>
-                    <?= $this->Form->control('retype_password', [
-                        'class' => 'form-control',
-                        'placeholder' => 'Retype Password',
-                        'label' => false,
-                        'type' => 'password',
-                        'id' => 'retype-password-enroll'
-                    ]) ?>
+                    <div class="password-field">
+                        <?= $this->Form->control('retype_password', [
+                            'class' => 'form-control',
+                            'placeholder' => 'Retype Password',
+                            'label' => false,
+                            'type' => 'password',
+                            'id' => 'retype-password-enroll'
+                        ]) ?>
+                        <button type="button" class="password-toggle-btn toggle-password" data-target="#retype-password-enroll" aria-label="Show password">
+                            <i class="far fa-eye"></i>
+                        </button>
+                    </div>
                     <label>Attach E-Signature</label>
                     <?= $this->Form->control('esignature', [
                         'type' => 'file',
@@ -207,10 +269,6 @@
                         'accept' => '.png,.jpg,.jpeg',
                         'id' => 'esignature-enroll'
                     ]) ?>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="toggle-password-enroll">
-                        <label class="form-check-label" for="toggle-password-enroll">Show password</label>
-                    </div>
                     <?= $this->Form->control('username', [
                         'type' => 'hidden',
                         'label' => false,
@@ -243,12 +301,14 @@
                         'label' => false,
                         'id' => 'first-name-manage'
                     ]) ?>
-                    <label>M.I</label>
+                    <label>Middle Innitial</label>
                     <?= $this->Form->control('middle_initial', [
                         'class' => 'form-control',
-                        'placeholder' => 'M.I',
+                        'placeholder' => 'Middle Innitial',
                         'label' => false,
-                        'id' => 'middle-initial-manage'
+                        'id' => 'middle-initial-manage',
+                        'maxlength' => 2,
+                        'pattern' => '[A-Za-z]\\.?'
                     ]) ?>
                     <label>Last name</label>
                     <?= $this->Form->control('last_name', [
@@ -375,10 +435,8 @@
             </div>
             <div class="modal-body">
                 <div class="mb-2"><strong>Username:</strong> <span id="view-username">—</span></div>
+                <div class="mb-2"><strong>ID Number:</strong> <span id="view-id-number">—</span></div>
                 <div class="mb-2"><strong>Full Name:</strong> <span id="view-fullname">—</span></div>
-                <div class="mb-2"><strong>Suffix:</strong> <span id="view-suffix">—</span></div>
-                <div class="mb-2"><strong>Degree:</strong> <span id="view-degree">—</span></div>
-                <div class="mb-2"><strong>Rank:</strong> <span id="view-rank">—</span></div>
                 <div class="mb-2"><strong>Position:</strong> <span id="view-position">—</span></div>
                 <div class="mb-2"><strong>Email Address:</strong> <span id="view-email">—</span></div>
                 <div class="mb-2"><strong>Office:</strong> <span id="view-office">—</span></div>

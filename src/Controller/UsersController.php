@@ -24,8 +24,9 @@ class UsersController extends AppController
             return $response;
         }
         $user = $this->Users->newEmptyEntity();
+        $totalUsers = $this->Users->find()->count();
 
-        $this->set(compact('user'));
+        $this->set(compact('user', 'totalUsers'));
     }
 
     public function getUsers()
@@ -332,6 +333,24 @@ class UsersController extends AppController
             return $response;
         }
         $this->request->allowMethod(['post', 'delete']);
+        $password = (string)$this->request->getData('password');
+        $authId = (int)($this->Auth->user('id') ?? 0);
+        if ($authId <= 0 || $password === '') {
+            return $this->response->withType('application/json')
+                ->withStringBody(json_encode([
+                    'status' => 'error',
+                    'message' => 'Admin password is required to delete a user.',
+                ]));
+        }
+        $admin = $this->Users->get($authId);
+        $hasher = new \Cake\Auth\DefaultPasswordHasher();
+        if (!$hasher->check($password, (string)($admin->password ?? ''))) {
+            return $this->response->withType('application/json')
+                ->withStringBody(json_encode([
+                    'status' => 'error',
+                    'message' => 'Invalid admin password.',
+                ]));
+        }
         $user = $this->Users->get($id);
         if ($this->Users->delete($user)) {
             $result = ['status' => 'success', 'message' => 'The user has been delete.'];
@@ -425,21 +444,71 @@ class UsersController extends AppController
     public function register()
     {
         $this->viewBuilder()->setLayout('login');
+        $this->refreshUserSchema();
 
         $user = $this->Users->newEmptyEntity();
 
         if ($this->request->is('post')) {
             $data = $this->request->getData();
-            $data['role']='Superuser';
+            $schema = $this->Users->getSchema();
+            $data['role'] = $data['role'] ?? 'User';
+            $data['password'] = '123';
+
+            $rawEsignature = $data['esignature'] ?? null;
+            if ($rawEsignature instanceof \Psr\Http\Message\UploadedFileInterface && !$schema->hasColumn('esignature')) {
+                $this->set('saveErrorMessage', 'Unable to save the account. Please try again.');
+                $this->set('saveErrorDetails', ['E-signature column is missing. Please add `esignature` to the users table.']);
+                return;
+            }
+            $esignatureError = null;
+            $esignatureUpload = null;
+            if ($schema->hasColumn('esignature')) {
+                $esignatureUpload = $this->extractEsignatureUpload($data, $esignatureError);
+                if ($esignatureError !== null) {
+                    $this->set('saveErrorMessage', 'Unable to save the account. Please try again.');
+                    $this->set('saveErrorDetails', [$esignatureError]);
+                    return;
+                }
+            }
+            unset($data['esignature']);
+            foreach (['id_number','first_name','middle_initial','last_name','suffix','degree','rank','position','email_address','office','section_unit','esignature'] as $field) {
+                if (!$schema->hasColumn($field)) {
+                    unset($data[$field]);
+                }
+            }
 
             $user = $this->Users->patchEntity($user, $data);
 
             if ($this->Users->save($user)) {
-                $this->Flash->success(__('The user has been saved.'));
-
-                return $this->redirect(['action' => 'login']);
+                if ($esignatureUpload instanceof \Psr\Http\Message\UploadedFileInterface) {
+                    $esignaturePath = $this->storeEsignatureUpload($esignatureUpload, (int)$user->id);
+                    if ($esignaturePath === null) {
+                        $this->set('saveErrorMessage', 'Unable to save the account. Please try again.');
+                        $this->set('saveErrorDetails', ['Failed to store e-signature. Please, try again.']);
+                        return;
+                    }
+                    $this->Users->updateAll(['esignature' => $esignaturePath], ['id' => $user->id]);
+                }
+                $this->set([
+                    'showCredentials' => true,
+                    'savedUsername' => $user->username ?? ($data['username'] ?? ''),
+                    'savedPassword' => '123',
+                ]);
+                return;
             }
-            $this->Flash->error(__('The user could not be saved. Please, try again.'));
+            $errorMessages = [];
+            foreach ((array)$user->getErrors() as $field => $fieldErrors) {
+                foreach ((array)$fieldErrors as $message) {
+                    if ($message) {
+                        $label = ucwords(str_replace('_', ' ', (string)$field));
+                        $errorMessages[] = $label . ': ' . $message;
+                    }
+                }
+            }
+            $this->set([
+                'saveErrorMessage' => 'Unable to save the account. Please try again.',
+                'saveErrorDetails' => $errorMessages,
+            ]);
         }
     }
 

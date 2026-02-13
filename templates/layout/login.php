@@ -14,7 +14,7 @@
  * @var \App\View\AppView $this
  */
 
-$cakeDescription = 'SDO ACTIVITY';
+$cakeDescription = 'Project OARAS';
 ?>
 <!DOCTYPE html>
 <html>

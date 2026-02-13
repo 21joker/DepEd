@@ -34,9 +34,7 @@ $(function () {
             $('#role-display-enroll').val('User');
             $('#password-enroll').val('');
             $('#retype-password-enroll').val('');
-            $('#toggle-password-enroll').prop('checked', false);
-            $('#password-enroll').attr('type', 'password');
-            $('#retype-password-enroll').attr('type', 'password');
+            resetPasswordToggles();
             $('#username').val('');
             $('#role').val('');
         }
@@ -187,6 +185,7 @@ $(function () {
                 $('#view-role').text(data.role || '—');
                 $('#view-created').text(data.created || '—');
                 $('#view-modified').text(data.modified || '—');
+                $('#view-id-number').text(data.id_number || 'â€”');
                 $('#users-view-modal').modal('show');
             })
             .fail(function(jqXHR, textStatus, errorThrown){
@@ -194,8 +193,34 @@ $(function () {
             });
     });
 
+    function sanitizeMiddleInitial(value) {
+        if (!value) {
+            return '';
+        }
+        var letter = String(value).replace(/[^a-zA-Z]/g, '').charAt(0);
+        return letter ? letter.toUpperCase() : '';
+    }
+
+    function normalizeMiddleInitialWithDot(value) {
+        var letter = sanitizeMiddleInitial(value);
+        return letter ? letter + '.' : '';
+    }
+
+    $('#users-modal').on('input', '#middle-initial-enroll, #middle-initial-manage', function () {
+        var clean = sanitizeMiddleInitial($(this).val());
+        $(this).val(clean);
+    });
+
     $('#users-form').on('submit',function (e) {
         e.preventDefault();
+        var $miEnroll = $('#middle-initial-enroll');
+        var $miManage = $('#middle-initial-manage');
+        if ($miEnroll.length) {
+            $miEnroll.val(normalizeMiddleInitialWithDot($miEnroll.val()));
+        }
+        if ($miManage.length) {
+            $miManage.val(normalizeMiddleInitialWithDot($miManage.val()));
+        }
         if (isEnroll) {
             var password = $('#password-enroll').val();
             var retype = $('#retype-password-enroll').val();
@@ -322,11 +347,37 @@ $(function () {
         });
     });
 
-    $('#users-modal').on('change', '#toggle-password-enroll', function () {
-        var show = $(this).is(':checked');
-        var inputType = show ? 'text' : 'password';
-        $('#password-enroll').attr('type', inputType);
-        $('#retype-password-enroll').attr('type', inputType);
+    function setPasswordToggleState($button, show) {
+        var $icon = $button.find('i');
+        var label = show ? 'Hide password' : 'Show password';
+        $button.attr('aria-label', label);
+        if ($icon.length) {
+            $icon.toggleClass('fa-eye', !show);
+            $icon.toggleClass('fa-eye-slash', show);
+        }
+    }
+
+    function resetPasswordToggles() {
+        $('#password-enroll').attr('type', 'password');
+        $('#retype-password-enroll').attr('type', 'password');
+        $('#users-modal .toggle-password').each(function () {
+            setPasswordToggleState($(this), false);
+        });
+    }
+
+    $('#users-modal').on('click', '.toggle-password', function () {
+        var $button = $(this);
+        var target = $button.data('target');
+        if (!target) {
+            return;
+        }
+        var $input = $(target);
+        if (!$input.length) {
+            return;
+        }
+        var show = $input.attr('type') === 'password';
+        $input.attr('type', show ? 'text' : 'password');
+        setPasswordToggleState($button, show);
     });
 
     $('#users-table').on('click', '.delete', function (e) {
@@ -336,10 +387,15 @@ $(function () {
         }
         var id=$(this).data('id');
         if(confirm('Are you sure you want to delete this record?')){
+            var adminPassword = prompt('Enter your admin password to confirm deletion:');
+            if (!adminPassword) {
+                return;
+            }
             $.ajax({
                 url: '/usermngt/Users/delete/'+ id,
                 type: "DELETE",
                 dataType: 'json',
+                data: { password: adminPassword },
                 headers : csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
             })
                 .done(function(data, textStatus, jqXHR){
@@ -378,9 +434,7 @@ $(function () {
         $('#role-display-enroll').val('User');
         $('#password-enroll').val('');
         $('#retype-password-enroll').val('');
-        $('#toggle-password-enroll').prop('checked', false);
-        $('#password-enroll').attr('type', 'password');
-        $('#retype-password-enroll').attr('type', 'password');
+        resetPasswordToggles();
         $('#username').val('');
         $('#role').val('');
         $('#id').val('');

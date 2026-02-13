@@ -39,6 +39,7 @@ $knownLabels = [
     'Budget Requirement',
     'Source of Fund',
     'Grand Total',
+    'WFP',
     'Attachment SUB-ARO',
     'Attachment SFWP',
     'Attachment AR',
@@ -360,9 +361,13 @@ function _approval_label(?string $status): string
                 $status = $approvalStatuses[$admin->id] ?? null;
                 $badge = _approval_badge_class($status);
                 $label = _approval_label($status);
+                $displayName = (string)($admin->username ?? '');
+                if (strcasecmp($displayName, 'SMMNE') === 0) {
+                    $displayName = 'SMM&E';
+                }
               ?>
               <div class="d-flex align-items-center justify-content-between mb-2">
-                <div><?= h($admin->username) ?></div>
+                <div><?= h($displayName) ?></div>
                 <span class="badge <?= h($badge) ?>"><?= h($label) ?></span>
               </div>
             <?php endforeach; ?>
@@ -431,6 +436,7 @@ function _approval_label(?string $status): string
         'AC' => 'Attachment AC',
         'List of Participants' => 'Attachment List of Participants',
     ];
+        $wfpCode = trim((string)($fields['WFP'] ?? ''));
         $attachmentItems = [];
         foreach ($attachmentMap as $label => $fieldKey) {
             $filename = trim((string)($fields[$fieldKey] ?? ''));
@@ -471,6 +477,11 @@ function _approval_label(?string $status): string
                   </div>
                 </div>
               <?php endforeach; ?>
+            <?php endif; ?>
+            <?php if ($wfpCode !== ''): ?>
+              <div class="mt-2">
+                <strong>WFP:</strong> <?= h($wfpCode) ?>
+              </div>
             <?php endif; ?>
           </div>
         </div>

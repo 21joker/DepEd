@@ -122,6 +122,99 @@
     text-align: center;
     margin-bottom: 6px;
 }
+.activity-schedule-calendar {
+    border: 1px solid #cfcfcf;
+    background: #fff;
+}
+.activity-schedule-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #d9d9d9;
+    padding: 6px 8px;
+    background: #f8f8f8;
+}
+.activity-schedule-month {
+    font-weight: 700;
+    font-size: 14px;
+}
+.activity-schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.activity-schedule-weekday {
+    font-weight: 700;
+    text-align: center;
+    padding: 4px 0;
+    border-right: 1px solid #d9d9d9;
+    border-bottom: 1px solid #d9d9d9;
+    background: #f3f3f3;
+}
+.activity-schedule-weekday:nth-child(7n) {
+    border-right: none;
+}
+.activity-schedule-day {
+    min-height: 108px;
+    border-right: 1px solid #d9d9d9;
+    border-bottom: 1px solid #d9d9d9;
+    padding: 4px;
+    position: relative;
+    background: #fff;
+}
+.activity-schedule-day:nth-child(7n) {
+    border-right: none;
+}
+.activity-schedule-day.is-outside {
+    background: #f7f7f7;
+}
+.activity-schedule-day-number {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 12px;
+    color: #666;
+}
+.activity-schedule-slot-list {
+    margin-top: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.activity-schedule-slot {
+    border: 1px solid #17a2d8;
+    background: #17a2d8;
+    color: #fff;
+    border-radius: 4px;
+    text-align: center;
+    line-height: 1.1;
+    padding: 5px 4px;
+    width: 100%;
+}
+.activity-schedule-slot small {
+    display: block;
+    font-size: 11px;
+}
+.activity-schedule-slot.is-selected {
+    background: #117fa8;
+    border-color: #117fa8;
+}
+.activity-schedule-slot:disabled {
+    background: #dc3545;
+    border-color: #dc3545;
+    cursor: not-allowed;
+}
+.activity-schedule-selected {
+    border: 1px solid #d9d9d9;
+    background: #fafafa;
+    padding: 8px;
+    font-size: 12px;
+    min-height: 38px;
+}
+@media (max-width: 767.98px) {
+    .activity-schedule-day {
+        min-height: 90px;
+    }
+}
 .target-participants-grid {
     border: 1px solid #2b2b2b;
 }
@@ -131,25 +224,7 @@
 .target-participants-grid .tp-cell:first-child {
     border-left: none;
 }
-#activity-calendar .disabled,
-#activity-calendar .disabled:hover,
-#activity-calendar .disabled.day,
-#activity-calendar .disabled.day:hover,
-#activity-calendar .disabled.day.active {
-    background: #dc3545;
-    color: #fff;
-    opacity: 1;
-    cursor: not-allowed;
-}
 </style>
-
-<?php
-    $this->Html->css('/plugins/tempusdominus-bootstrap-4/css/tempusdominus-bootstrap-4.min.css', ['block' => 'css']);
-    $this->Html->script([
-        '/plugins/moment/moment.min.js',
-        '/plugins/tempusdominus-bootstrap-4/js/tempusdominus-bootstrap-4.min.js',
-    ], ['block' => 'scriptBottom']);
-?>
 
 <div class="col-12">
     <div class="card">
@@ -217,6 +292,7 @@
                             <th>Grand Total</th>
                             <th>SUB-ARO</th>
                             <th>S/WFP</th>
+                            <th>WFP</th>
                             <th>AR</th>
                             <th>ATC</th>
                             <th>List of Participants</th>
@@ -237,11 +313,22 @@
                                 $grand = trim((string)($summary['grand_total'] ?? ''));
                                 $subAro = trim((string)($summary['attachment_sub_aro'] ?? ''));
                                 $sfwp = trim((string)($summary['attachment_sfwp'] ?? ''));
+                                $wfpCode = trim((string)($summary['wfp_code'] ?? ''));
                                 $ar = trim((string)($summary['attachment_ar'] ?? ''));
                                 $acAttach = trim((string)($summary['attachment_ac'] ?? ''));
                                 $participantsList = trim((string)($summary['attachment_list_participants'] ?? ''));
                                 $requestStatusById = $requestStatusById ?? [];
+                                $declinedRequestIds = $declinedRequestIds ?? [];
+                                $reviewedByRequest = $reviewedByRequest ?? [];
+                                $reviewedLatestByRequest = $reviewedLatestByRequest ?? [];
+                                $declinedLookup = !empty($declinedRequestIds)
+                                    ? array_fill_keys($declinedRequestIds, true)
+                                    : [];
+                                $approvalLatestByRequest = $approvalLatestByRequest ?? [];
                                 $rowStatus = $requestStatusById[(int)$request->id] ?? ($request->status ?? 'pending');
+                                if (isset($declinedLookup[(int)$request->id]) || !empty($reviewedByRequest[(int)$request->id])) {
+                                    $rowStatus = 'declined';
+                                }
                                 $isDeclined = $rowStatus === 'declined';
                                 $isApprovedRow = $rowStatus === 'approved';
                                 $isLocked = $isApprovedRow
@@ -257,9 +344,40 @@
                                 }
                                 $isApproved = (int)($request->approvals_needed ?? 0) > 0
                                     && (int)($request->approvals_count ?? 0) >= (int)($request->approvals_needed ?? 0);
+                                $userUpdatedAt = $request->user_updated_at ?? null;
+                                $createdAt = $request->created_at ?? $request->created ?? null;
+                                $userUpdatedTs = null;
+                                if ($userUpdatedAt instanceof \DateTimeInterface) {
+                                    $userUpdatedTs = $userUpdatedAt->getTimestamp();
+                                } elseif (!empty($userUpdatedAt)) {
+                                    $ts = strtotime((string)$userUpdatedAt);
+                                    $userUpdatedTs = $ts === false ? null : $ts;
+                                }
+                                $createdTs = null;
+                                if ($createdAt instanceof \DateTimeInterface) {
+                                    $createdTs = $createdAt->getTimestamp();
+                                } elseif (!empty($createdAt)) {
+                                    $ts = strtotime((string)$createdAt);
+                                    $createdTs = $ts === false ? null : $ts;
+                                }
+                                $reviewedLatest = $reviewedLatestByRequest[(int)$request->id] ?? null;
+                                $reviewedTs = !empty($reviewedLatest['ts']) ? (int)$reviewedLatest['ts'] : null;
+                                $isUpdated = false;
+                                if ($userUpdatedTs !== null) {
+                                    if ($reviewedTs !== null) {
+                                        $isUpdated = $userUpdatedTs > ($reviewedTs + 5);
+                                    } elseif ($createdTs !== null) {
+                                        $isUpdated = $userUpdatedTs > ($createdTs + 5);
+                                    } else {
+                                        $isUpdated = true;
+                                    }
+                                }
                                 if ($isApprovedRow) {
                                     $statusLabel = 'Fully Approved';
                                     $statusClass = 'success';
+                                } elseif ($isUpdated) {
+                                    $statusLabel = 'Updated';
+                                    $statusClass = 'warning';
                                 } elseif ($isDeclined) {
                                     $statusLabel = 'Review';
                                     $statusClass = 'danger';
@@ -307,6 +425,7 @@
                                         <?= $sfwp !== '' ? h($sfwp) : 'N/A' ?>
                                     <?php endif; ?>
                                 </td>
+                                <td><?= $wfpCode !== '' ? h($wfpCode) : 'N/A' ?></td>
                                 <td>
                                     <?php if ($ar !== '' && ($link = $buildFileLink($ar))): ?>
                                         <a href="<?= h($link['url']) ?>" target="_blank" rel="noopener">
@@ -393,7 +512,7 @@
 
             <?php
                 $venueOptions = [
-                    '' => 'Select...',
+                    '' => 'Modality',
                     'ONLINE' => 'ONLINE',
                     'FaceToFace' => 'FaceToFace',
                     'Hybrid' => 'Hybrid',
@@ -490,6 +609,7 @@
                         <td colspan="2"><?= $this->Form->text('proponents', [
                             'class' => 'form-control',
                             'value' => $requestEntity->proponents ?? ($authDisplayName ?? ($auth['username'] ?? '')),
+                            'readonly' => true,
                         ]) ?></td>
                     </tr>
                     <tr>
@@ -506,34 +626,36 @@
                                           'time_to' => (string)($requestEntity->get('activity_schedule_time_to') ?? ''),
                                       ]];
                                   }
+                                  $scheduleRowsForJs = array_values(array_map(function ($item) {
+                                      return [
+                                          'date' => (string)($item['date'] ?? ''),
+                                          'time_from' => (string)($item['time_from'] ?? ''),
+                                          'time_to' => (string)($item['time_to'] ?? ''),
+                                      ];
+                                  }, $scheduleRows));
                               ?>
-                              <div id="schedule-rows">
-                                  <?php foreach ($scheduleRows as $rowIndex => $row): ?>
-                                      <div class="form-row align-items-end mb-2 schedule-row">
-                                          <div class="col-md-5">
-                                              <label class="mb-1 font-weight-bold">Date</label>
-                                              <input type="date" name="activity_schedule_date[]" class="form-control schedule-date" value="<?= h($row['date'] ?? '') ?>">
-                                          </div>
-                                          <div class="col-md-3">
-                                              <label class="mb-1 font-weight-bold">Time From</label>
-                                              <input type="time" name="activity_schedule_time_from[]" class="form-control" value="<?= h($row['time_from'] ?? '') ?>">
-                                          </div>
-                                          <div class="col-md-3">
-                                              <label class="mb-1 font-weight-bold">Time To</label>
-                                              <input type="time" name="activity_schedule_time_to[]" class="form-control" value="<?= h($row['time_to'] ?? '') ?>">
-                                          </div>
-                                          <div class="col-md-1 text-right">
-                                              <button type="button" class="btn btn-outline-secondary btn-sm add-schedule-row" title="Add">
-                                                  <i class="fas fa-plus"></i>
-                                              </button>
-                                              <button type="button" class="btn btn-outline-secondary btn-sm remove-schedule-row" title="Remove">
-                                                  <i class="fas fa-minus"></i>
-                                              </button>
-                                          </div>
-                                      </div>
-                                  <?php endforeach; ?>
+                              <div class="form-row align-items-end">
+                                  <div class="col-md-4">
+                                      <label for="manual-schedule-date" class="mb-1">Date</label>
+                                      <input type="date" id="manual-schedule-date" class="form-control">
+                                  </div>
+                                  <div class="col-md-3">
+                                      <label for="manual-schedule-from" class="mb-1">Time From</label>
+                                      <input type="time" id="manual-schedule-from" class="form-control">
+                                  </div>
+                                  <div class="col-md-3">
+                                      <label for="manual-schedule-to" class="mb-1">Time To</label>
+                                      <input type="time" id="manual-schedule-to" class="form-control">
+                                  </div>
+                                  <div class="col-md-2">
+                                      <button type="button" class="btn btn-outline-primary btn-sm w-100" id="manual-schedule-add">
+                                          Add
+                                      </button>
+                                  </div>
                               </div>
-                              <small class="text-muted">Use the + button to add another date/time.</small>
+                              <div class="manual-schedule-list mt-2" id="manual-schedule-list"></div>
+                              <div class="activity-schedule-selected mt-2" id="activity-schedule-selected"></div>
+                              <div id="schedule-rows" class="d-none"></div>
                           </td>
                       </tr>
                       <tr>
@@ -548,9 +670,14 @@
                                             'placeholder' => 'venue',
                                         ]) ?>
                                     </div>
-                                    <div class="col-auto">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" data-toggle="modal" data-target="#mph-calendar-modal">
-                                            MPH Calendar
+                                    <div class="col-3">
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-primary btn-sm w-100"
+                                            data-toggle="modal"
+                                            data-target="#mphScheduleModal"
+                                        >
+                                            VIEW MPH SCHEDULE
                                         </button>
                                     </div>
                                     <div class="col-4">
@@ -581,13 +708,17 @@
                                   </div>
                                   <div class="col-md-3 tp-cell">
                                       <?= $this->Form->text('target_participants_male', [
-                                          'class' => 'form-control',
+                                          'class' => 'form-control numeric-only',
+                                          'inputmode' => 'numeric',
+                                          'pattern' => '[0-9]*',
                                           'value' => $targetMale,
                                       ]) ?>
                                   </div>
                                   <div class="col-md-3 tp-cell">
                                       <?= $this->Form->text('target_participants_female', [
-                                          'class' => 'form-control',
+                                          'class' => 'form-control numeric-only',
+                                          'inputmode' => 'numeric',
+                                          'pattern' => '[0-9]*',
                                           'value' => $targetFemale,
                                       ]) ?>
                                   </div>
@@ -620,10 +751,51 @@
                             'value' => !empty($requestEntity->monitoring_evaluation)
                                 ? $requestEntity->monitoring_evaluation
                                 : 'SHIRLYN R. MACASPAC PhD / ARCADIO L. MODUMO Jr.',
+                            'readonly' => true,
                         ]) ?></td>
                     </tr>
                 </tbody>
             </table>
+
+            <div class="modal fade" id="mphScheduleModal" tabindex="-1" role="dialog" aria-labelledby="mphScheduleModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="mphScheduleModalLabel">VIEW MPH SCHEDULE</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="activity-schedule-calendar">
+                                <div class="activity-schedule-toolbar">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="activity-schedule-prev-month">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <div class="activity-schedule-month" id="activity-schedule-month"></div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="activity-schedule-next-month">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                                <div class="activity-schedule-grid" id="activity-schedule-weekdays">
+                                    <div class="activity-schedule-weekday">Sun</div>
+                                    <div class="activity-schedule-weekday">Mon</div>
+                                    <div class="activity-schedule-weekday">Tue</div>
+                                    <div class="activity-schedule-weekday">Wed</div>
+                                    <div class="activity-schedule-weekday">Thu</div>
+                                    <div class="activity-schedule-weekday">Fri</div>
+                                    <div class="activity-schedule-weekday">Sat</div>
+                                </div>
+                                <div class="activity-schedule-grid" id="activity-schedule-grid"></div>
+                            </div>
+                            <small class="text-muted">Red slot means booked.</small>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <table class="table proposal-table">
                 <thead>
@@ -634,14 +806,14 @@
                 <tbody>
                     <tr>
                         <td class="label">Budget Requirement:</td>
-                        <td><?= $this->Form->text('budget_requirement', ['class' => 'form-control peso-format']) ?></td>
+                        <td><?= $this->Form->text('budget_requirement', ['class' => 'form-control peso-format', 'readonly' => true]) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Source of Fund:</td>
                         <td>
                             <?php
-                                $fundOptions = ['OSDS', 'GASS-MOOE', 'CMF', 'PSF'];
-                                $fundAmounts = $fundAmounts ?? [];
+                            $fundOptions = ['GASS-MOOE', 'HRTD', 'CMF', 'PSF', 'Other Sources'];
+                            $fundAmounts = $fundAmounts ?? [];
                             ?>
                             <table class="table budget-table mb-0" id="source-of-fund-table">
                                 <thead>
@@ -664,7 +836,7 @@
                                                     id="<?= h($id) ?>"
                                                     name="source_of_fund[<?= h($option) ?>]"
                                                     value="<?= h($value) ?>"
-                                                    class="form-control peso-format text-center"
+                                                    class="form-control peso-format text-center decimal-only"
                                                     inputmode="decimal"
                                                     placeholder="0.00"
                                                 >
@@ -702,35 +874,43 @@
                                                 'value' => $natureList[$i] ?? '',
                                             ]) ?></td>
                                             <td><?= $this->Form->text("expenditure_no.$i", [
-                                                'class' => 'form-control matrix-no',
+                                                'class' => 'form-control matrix-no numeric-only',
+                                                'inputmode' => 'numeric',
+                                                'pattern' => '[0-9]*',
                                                 'value' => $countList[$i] ?? '',
                                             ]) ?></td>
                                             <td><?= $this->Form->text("expenditure_amount.$i", [
-                                                'class' => 'form-control peso-format matrix-amount',
+                                                'class' => 'form-control peso-format matrix-amount decimal-only',
+                                                'inputmode' => 'decimal',
                                                 'value' => $amountList[$i] ?? '',
                                             ]) ?></td>
                                             <td><?= $this->Form->text("expenditure_total.$i", [
                                                 'class' => 'form-control peso-format matrix-total',
                                                 'value' => $totalList[$i] ?? '',
+                                                'readonly' => true,
                                             ]) ?></td>
                                         </tr>
                                     <?php endfor; ?>
                                 </tbody>
                             </table>
-                            <div class="text-right mt-2">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="remove-matrix-row">
-                                    <i class="fas fa-minus"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="add-matrix-row">
-                                    <i class="fas fa-plus"></i>
-                                </button>
+                            <div class="form-row justify-content-end mt-2">
+                                <div class="col-2 col-sm-1">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="remove-matrix-row" aria-label="Remove row">
+                                        <i class="fas fa-minus"></i>
+                                    </button>
+                                </div>
+                                <div class="col-2 col-sm-1">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="add-matrix-row" aria-label="Add row">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
                             </div>
                         </td>
                     </tr>
                     <tr>
                         <td class="label">Grand Total</td>
                         <td>
-                            <?= $this->Form->text('grand_total', ['class' => 'form-control peso-format']) ?>
+                            <?= $this->Form->text('grand_total', ['class' => 'form-control peso-format', 'readonly' => true]) ?>
                             <div id="budget-status" class="alert mt-2 mb-0" style="display: none;"></div>
                         </td>
                     </tr>
@@ -751,14 +931,29 @@
                         ]) ?>
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label for="attachment-sfwp">S/WFP</label>
-                        <?= $this->Form->control('attachment_sfwp', [
-                            'type' => 'file',
-                            'label' => false,
-                            'id' => 'attachment-sfwp',
-                            'class' => 'form-control',
-                            'accept' => '.pdf,application/pdf'
-                        ]) ?>
+                        <div class="row">
+                            <div class="col-md-6 mb-2 mb-md-0">
+                                <label for="attachment-sfwp">SWFP</label>
+                                <?= $this->Form->control('attachment_sfwp', [
+                                    'type' => 'file',
+                                    'label' => false,
+                                    'id' => 'attachment-sfwp',
+                                    'class' => 'form-control',
+                                    'accept' => '.pdf,application/pdf'
+                                ]) ?>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="wfp-code">WFP</label>
+                                <input
+                                    type="text"
+                                    id="wfp-code"
+                                    name="wfp_code"
+                                    class="form-control"
+                                    placeholder="Enter Tracking Code"
+                                    value="<?= h($requestEntity->wfp_code ?? '') ?>"
+                                >
+                            </div>
+                        </div>
                     </div>
                     <div class="col-md-6 mb-3">
                         <label for="attachment-ar">AR</label>
@@ -771,16 +966,29 @@
                         ]) ?>
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label for="attachment-ac">ATC</label>
-                        <?= $this->Form->control('attachment_ac', [
-                            'type' => 'file',
-                            'label' => false,
-                            'id' => 'attachment-ac',
-                            'class' => 'form-control',
-                            'accept' => '.pdf,application/pdf'
-                        ]) ?>
+                        <div class="row">
+                            <div class="col-md-6 mb-2 mb-md-0">
+                                <label for="attachment-ac">ATC</label>
+                                <?= $this->Form->control('attachment_ac', [
+                                    'type' => 'file',
+                                    'label' => false,
+                                    'id' => 'attachment-ac',
+                                    'class' => 'form-control',
+                                    'accept' => '.pdf,application/pdf'
+                                ]) ?>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="attachment-pd-proposal">PD PROPOSAL ATTACHMENT</label>
+                                <?= $this->Form->control('attachment_pd_proposal', [
+                                    'type' => 'file',
+                                    'label' => false,
+                                    'id' => 'attachment-pd-proposal',
+                                    'class' => 'form-control',
+                                    'accept' => '.pdf,application/pdf'
+                                ]) ?>
+                            </div>
+                        </div>
                     </div>
-                  
                     <div class="col-md-6 mb-3"> <small class="text-muted">PDF files only.</small><br><br>
                         <label for="attachment-list-participants">List of Participants</label>
                         <?= $this->Form->control('attachment_list_participants', [
@@ -796,6 +1004,7 @@
                             </a>
                         </small>
                     </div>
+                    <div class="col-md-6 mb-3"></div>
                 </div>
                 
             </div>
@@ -823,29 +1032,20 @@
 </div>
 </div>
 
-<div class="modal fade" id="mph-calendar-modal" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">MPH Calendar</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="schedule-calendar-title mb-2 text-left">MPH</div>
-        <div id="activity-calendar" class="border"></div>
-        <small class="text-muted d-block mt-2">Red dates are already booked.</small>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var bookedDatesUrl = <?= json_encode($this->Url->build('/request/booked-dates')) ?>;
-    var bookedDates = [];
-    var calendarReady = false;
+    var initialScheduleRows = <?= json_encode($scheduleRowsForJs ?? []) ?>;
+    var bookedSlots = {};
+    var scheduleMonth = new Date();
+    scheduleMonth.setDate(1);
+    var slotRanges = {
+        am: { from: '08:00', to: '12:00' },
+        pm: { from: '13:00', to: '17:00' }
+    };
+    var selectedSlots = {};
+    var manualScheduleRows = [];
+    var manualRowCounter = 0;
 
     function normalizeDate(value) {
         if (!value) {
@@ -858,31 +1058,16 @@ document.addEventListener('DOMContentLoaded', function () {
         if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
             return trimmed;
         }
-        if (window.moment) {
-            var parsed = moment(trimmed, ['MM/DD/YYYY', 'M/D/YYYY'], true);
-            if (parsed.isValid()) {
-                return parsed.format('YYYY-MM-DD');
+        var parts = trimmed.split('/');
+        if (parts.length === 3) {
+            var month = parseInt(parts[0], 10);
+            var day = parseInt(parts[1], 10);
+            var year = parseInt(parts[2], 10);
+            if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+                return year + '-' + pad(month) + '-' + pad(day);
             }
         }
         return null;
-    }
-
-    function applyBookedDates() {
-        if (!window.jQuery || !$.fn.datetimepicker) {
-            return;
-        }
-        var $calendar = $('#activity-calendar');
-        if (!$calendar.length) {
-            return;
-        }
-        var picker = $calendar.data('datetimepicker');
-        if (!picker || !window.moment) {
-            return;
-        }
-        var disabled = bookedDates.map(function (item) {
-            return moment(item, 'YYYY-MM-DD');
-        });
-        $calendar.datetimepicker('disabledDates', disabled);
     }
 
     function fetchBookedDates() {
@@ -890,11 +1075,16 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         var handleData = function (data) {
-            if (!data || !Array.isArray(data.dates)) {
+            if (!data || !Array.isArray(data.slots)) {
                 return;
             }
-            bookedDates = data.dates;
-            applyBookedDates();
+            bookedSlots = {};
+            data.slots.forEach(function (value) {
+                if (typeof value === 'string' && value.indexOf('__') !== -1) {
+                    bookedSlots[value] = true;
+                }
+            });
+            renderActivityScheduleCalendar();
         };
         if (window.fetch) {
             fetch(bookedDatesUrl, { credentials: 'same-origin' })
@@ -913,81 +1103,354 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function initCalendar() {
-        if (calendarReady) {
-            return;
-        }
-        if (!window.jQuery || !$.fn.datetimepicker || !$('#activity-calendar').length) {
-            return;
-        }
-        var $calendar = $('#activity-calendar');
-        $calendar.datetimepicker({
-            format: 'L',
-            inline: true,
-            allowMultidate: true,
-            multidateSeparator: ', ',
-            useCurrent: false
-        });
-        $calendar.on('change.datetimepicker', function (event) {
-            if (event && event.date) {
-                $calendar.datetimepicker('clear');
-            }
-        });
-        calendarReady = true;
-        applyBookedDates();
+    function pad(value) {
+        return value < 10 ? '0' + value : String(value);
     }
 
-    $('#mph-calendar-modal').on('shown.bs.modal', function () {
-        initCalendar();
-        fetchBookedDates();
-    });
+    function toYmd(dateObj) {
+        return dateObj.getFullYear() + '-' + pad(dateObj.getMonth() + 1) + '-' + pad(dateObj.getDate());
+    }
 
-    var scheduleRows = document.getElementById('schedule-rows');
-    if (scheduleRows) {
-        scheduleRows.addEventListener('click', function (event) {
-            var addBtn = event.target.closest('.add-schedule-row');
-            var removeBtn = event.target.closest('.remove-schedule-row');
-            if (addBtn) {
-                var rows = scheduleRows.querySelectorAll('.schedule-row');
-                var lastRow = rows[rows.length - 1];
-                if (!lastRow) {
-                    return;
-                }
-                var newRow = lastRow.cloneNode(true);
-                newRow.querySelectorAll('input').forEach(function (input) {
-                    input.value = '';
-                });
-                scheduleRows.appendChild(newRow);
-                return;
+    function buildKey(dateValue, slot) {
+        return dateValue + '__' + slot;
+    }
+
+    function isBookedSlot(dateValue, slot) {
+        var key = buildKey(dateValue, slot);
+        return Object.prototype.hasOwnProperty.call(bookedSlots, key);
+    }
+
+    function getSlotFromTime(value) {
+        var hour = parseInt((value || '').split(':')[0], 10);
+        if (isNaN(hour)) {
+            return null;
+        }
+        return hour < 12 ? 'am' : 'pm';
+    }
+
+    function normalizeTime(value) {
+        if (!value) {
+            return '';
+        }
+        var trimmed = value.toString().trim();
+        if (trimmed === '') {
+            return '';
+        }
+        var match = trimmed.match(/^(\d{1,2}):(\d{2})/);
+        if (!match) {
+            return '';
+        }
+        return pad(parseInt(match[1], 10)) + ':' + match[2];
+    }
+
+    function timeToMinutes(value) {
+        var normalized = normalizeTime(value);
+        if (!normalized) {
+            return null;
+        }
+        var parts = normalized.split(':');
+        if (parts.length !== 2) {
+            return null;
+        }
+        var hours = parseInt(parts[0], 10);
+        var mins = parseInt(parts[1], 10);
+        if (isNaN(hours) || isNaN(mins)) {
+            return null;
+        }
+        return (hours * 60) + mins;
+    }
+
+    function rangeOverlaps(aStart, aEnd, bStart, bEnd) {
+        if (aStart === null || aEnd === null || bStart === null || bEnd === null) {
+            return false;
+        }
+        return aStart < bEnd && bStart < aEnd;
+    }
+
+    function isRangeBlocked(dateValue, timeFrom, timeTo) {
+        var start = timeToMinutes(timeFrom);
+        var end = timeToMinutes(timeTo);
+        if (start === null || end === null || start >= end) {
+            return { blocked: false };
+        }
+        var amKey = buildKey(dateValue, 'am');
+        var pmKey = buildKey(dateValue, 'pm');
+        if (bookedSlots[amKey]) {
+            var amStart = timeToMinutes(slotRanges.am.from);
+            var amEnd = timeToMinutes(slotRanges.am.to);
+            if (rangeOverlaps(start, end, amStart, amEnd)) {
+                return { blocked: true, label: '8:00 AM to 12:00 PM' };
             }
-            if (removeBtn) {
-                var allRows = scheduleRows.querySelectorAll('.schedule-row');
-                var row = removeBtn.closest('.schedule-row');
-                if (!row) {
-                    return;
-                }
-                if (allRows.length <= 1) {
-                    row.querySelectorAll('input').forEach(function (input) {
-                        input.value = '';
-                    });
-                    return;
-                }
-                row.remove();
+        }
+        if (bookedSlots[pmKey]) {
+            var pmStart = timeToMinutes(slotRanges.pm.from);
+            var pmEnd = timeToMinutes(slotRanges.pm.to);
+            if (rangeOverlaps(start, end, pmStart, pmEnd)) {
+                return { blocked: true, label: '1:00 PM to 5:00 PM' };
             }
+        }
+        return { blocked: false };
+    }
+
+    function isSameRange(a, b) {
+        return a && b && a.date === b.date && a.from === b.from && a.to === b.to;
+    }
+
+    function addManualRow(dateValue, timeFrom, timeTo) {
+        var normalizedDate = normalizeDate(dateValue);
+        var normalizedFrom = normalizeTime(timeFrom);
+        var normalizedTo = normalizeTime(timeTo);
+        if (!normalizedDate || !normalizedFrom || !normalizedTo) {
+            return false;
+        }
+        var blockedCheck = isRangeBlocked(normalizedDate, normalizedFrom, normalizedTo);
+        if (blockedCheck.blocked) {
+            alert('Not available: ' + blockedCheck.label + ' is already booked.');
+            return false;
+        }
+        var row = {
+            id: 'm' + (manualRowCounter++),
+            date: normalizedDate,
+            from: normalizedFrom,
+            to: normalizedTo
+        };
+        for (var i = 0; i < manualScheduleRows.length; i += 1) {
+            if (isSameRange(manualScheduleRows[i], row)) {
+                return false;
+            }
+        }
+        manualScheduleRows.push(row);
+        return true;
+    }
+
+    function renderManualScheduleList() {
+        var list = document.getElementById('manual-schedule-list');
+        if (!list) {
+            return;
+        }
+        list.innerHTML = '';
+        if (!manualScheduleRows.length) {
+            return;
+        }
+        manualScheduleRows.forEach(function (row) {
+            var item = document.createElement('div');
+            item.className = 'd-flex align-items-center justify-content-between border rounded px-2 py-1 mb-1';
+            item.innerHTML =
+                '<div>' + row.date + ' (' + row.from + '-' + row.to + ')</div>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger" data-id="' + row.id + '">Remove</button>';
+            list.appendChild(item);
         });
+    }
 
-        scheduleRows.addEventListener('change', function (event) {
-            var input = event.target;
-            if (!input || !input.classList.contains('schedule-date')) {
+    function hydrateInitialScheduleSelection() {
+        if (!Array.isArray(initialScheduleRows)) {
+            return;
+        }
+        initialScheduleRows.forEach(function (row) {
+            var dateValue = normalizeDate(row.date || '');
+            if (!dateValue) {
                 return;
             }
-            var normalized = normalizeDate(input.value);
-            if (normalized && bookedDates.indexOf(normalized) !== -1) {
-                alert('Selected date is already booked.');
-                input.value = '';
+            var timeFrom = normalizeTime(row.time_from || '');
+            var timeTo = normalizeTime(row.time_to || '');
+            var slot = getSlotFromTime(timeFrom);
+            if (slot && slotRanges[slot]) {
+                var range = slotRanges[slot];
+                if (range.from === timeFrom && range.to === timeTo) {
+                    selectedSlots[buildKey(dateValue, slot)] = {
+                        date: dateValue,
+                        slot: slot
+                    };
+                    return;
+                }
+            }
+            if (timeFrom && timeTo) {
+                addManualRow(dateValue, timeFrom, timeTo);
             }
         });
     }
+
+    function syncScheduleRowsToInputs() {
+        var container = document.getElementById('schedule-rows');
+        var summary = document.getElementById('activity-schedule-selected');
+        if (!container) {
+            return;
+        }
+        container.innerHTML = '';
+        var keys = Object.keys(selectedSlots).sort();
+        if (summary) {
+            summary.textContent = '';
+        }
+        if (!keys.length) {
+            if (!manualScheduleRows.length) {
+                if (summary) {
+                    summary.textContent = 'No schedule selected.';
+                }
+                return;
+            }
+        }
+        var summaryItems = [];
+        keys.forEach(function (key) {
+            var item = selectedSlots[key];
+            var range = slotRanges[item.slot];
+            if (!item || !range) {
+                return;
+            }
+            var row = document.createElement('div');
+            row.className = 'schedule-row';
+            row.innerHTML =
+                '<input type="hidden" name="activity_schedule_date[]" value="' + item.date + '">' +
+                '<input type="hidden" name="activity_schedule_time_from[]" value="' + range.from + '">' +
+                '<input type="hidden" name="activity_schedule_time_to[]" value="' + range.to + '">';
+            container.appendChild(row);
+            summaryItems.push(item.date + ' (' + item.slot.toUpperCase() + ' ' + range.from + '-' + range.to + ')');
+        });
+        manualScheduleRows.forEach(function (row) {
+            var manualRow = document.createElement('div');
+            manualRow.className = 'schedule-row';
+            manualRow.innerHTML =
+                '<input type="hidden" name="activity_schedule_date[]" value="' + row.date + '">' +
+                '<input type="hidden" name="activity_schedule_time_from[]" value="' + row.from + '">' +
+                '<input type="hidden" name="activity_schedule_time_to[]" value="' + row.to + '">';
+            container.appendChild(manualRow);
+            summaryItems.push(row.date + ' (' + row.from + '-' + row.to + ')');
+        });
+        if (summary) {
+            summary.textContent = summaryItems.join(' | ');
+        }
+    }
+
+    function renderActivityScheduleCalendar() {
+        var monthLabel = document.getElementById('activity-schedule-month');
+        var grid = document.getElementById('activity-schedule-grid');
+        if (!monthLabel || !grid) {
+            return;
+        }
+
+        var firstOfMonth = new Date(scheduleMonth.getFullYear(), scheduleMonth.getMonth(), 1);
+        var start = new Date(firstOfMonth);
+        start.setDate(firstOfMonth.getDate() - firstOfMonth.getDay());
+
+        var monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        monthLabel.textContent = monthNames[scheduleMonth.getMonth()] + ' ' + scheduleMonth.getFullYear();
+        grid.innerHTML = '';
+
+        for (var i = 0; i < 42; i += 1) {
+            var dayDate = new Date(start);
+            dayDate.setDate(start.getDate() + i);
+            var dateValue = toYmd(dayDate);
+            var isOutside = dayDate.getMonth() !== scheduleMonth.getMonth();
+            var isAmBooked = isBookedSlot(dateValue, 'am');
+            var isPmBooked = isBookedSlot(dateValue, 'pm');
+            var amKey = buildKey(dateValue, 'am');
+            var pmKey = buildKey(dateValue, 'pm');
+            var amClass = selectedSlots[amKey] ? ' is-selected' : '';
+            var pmClass = selectedSlots[pmKey] ? ' is-selected' : '';
+
+            var cell = document.createElement('div');
+            cell.className = 'activity-schedule-day' + (isOutside ? ' is-outside' : '');
+            cell.innerHTML =
+                '<div class="activity-schedule-day-number">' + dayDate.getDate() + '</div>' +
+                '<div class="activity-schedule-slot-list">' +
+                    '<button type="button" class="activity-schedule-slot' + amClass + '" data-date="' + dateValue + '" data-slot="am"' + (isAmBooked ? ' disabled' : '') + '>' +
+                        '<strong>AM</strong><small>' + (isAmBooked ? 'Booked' : 'Select') + '</small>' +
+                    '</button>' +
+                    '<button type="button" class="activity-schedule-slot' + pmClass + '" data-date="' + dateValue + '" data-slot="pm"' + (isPmBooked ? ' disabled' : '') + '>' +
+                        '<strong>PM</strong><small>' + (isPmBooked ? 'Booked' : 'Select') + '</small>' +
+                    '</button>' +
+                '</div>';
+            grid.appendChild(cell);
+        }
+    }
+
+    var prevMonthBtn = document.getElementById('activity-schedule-prev-month');
+    var nextMonthBtn = document.getElementById('activity-schedule-next-month');
+    var scheduleGrid = document.getElementById('activity-schedule-grid');
+
+    if (prevMonthBtn) {
+        prevMonthBtn.addEventListener('click', function () {
+            scheduleMonth = new Date(scheduleMonth.getFullYear(), scheduleMonth.getMonth() - 1, 1);
+            renderActivityScheduleCalendar();
+        });
+    }
+    if (nextMonthBtn) {
+        nextMonthBtn.addEventListener('click', function () {
+            scheduleMonth = new Date(scheduleMonth.getFullYear(), scheduleMonth.getMonth() + 1, 1);
+            renderActivityScheduleCalendar();
+        });
+    }
+    if (scheduleGrid) {
+        scheduleGrid.addEventListener('click', function (event) {
+            var btn = event.target.closest('.activity-schedule-slot');
+            if (!btn || btn.disabled) {
+                return;
+            }
+            var dateValue = btn.getAttribute('data-date');
+            var slot = btn.getAttribute('data-slot');
+            if (!dateValue || !slotRanges[slot]) {
+                return;
+            }
+            var key = buildKey(dateValue, slot);
+            if (selectedSlots[key]) {
+                delete selectedSlots[key];
+            } else {
+                selectedSlots[key] = { date: dateValue, slot: slot };
+            }
+            syncScheduleRowsToInputs();
+            renderActivityScheduleCalendar();
+        });
+    }
+
+    var manualAddBtn = document.getElementById('manual-schedule-add');
+    if (manualAddBtn) {
+        manualAddBtn.addEventListener('click', function () {
+            var dateInput = document.getElementById('manual-schedule-date');
+            var fromInput = document.getElementById('manual-schedule-from');
+            var toInput = document.getElementById('manual-schedule-to');
+            var dateValue = dateInput ? dateInput.value : '';
+            var timeFrom = fromInput ? fromInput.value : '';
+            var timeTo = toInput ? toInput.value : '';
+            var added = addManualRow(dateValue, timeFrom, timeTo);
+            if (!added) {
+                return;
+            }
+            if (dateInput) {
+                dateInput.value = '';
+            }
+            if (fromInput) {
+                fromInput.value = '';
+            }
+            if (toInput) {
+                toInput.value = '';
+            }
+            renderManualScheduleList();
+            syncScheduleRowsToInputs();
+        });
+    }
+
+    var manualList = document.getElementById('manual-schedule-list');
+    if (manualList) {
+        manualList.addEventListener('click', function (event) {
+            var btn = event.target.closest('button[data-id]');
+            if (!btn) {
+                return;
+            }
+            var rowId = btn.getAttribute('data-id');
+            manualScheduleRows = manualScheduleRows.filter(function (row) {
+                return row.id !== rowId;
+            });
+            renderManualScheduleList();
+            syncScheduleRowsToInputs();
+        });
+    }
+
+    hydrateInitialScheduleSelection();
+    renderManualScheduleList();
+    syncScheduleRowsToInputs();
+    renderActivityScheduleCalendar();
 
     fetchBookedDates();
     setInterval(fetchBookedDates, 10000);
@@ -1087,6 +1550,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function normalizeNumber(value) {
         return (value || '').toString().replace(/[^\d.-]/g, '');
+    }
+
+    function sanitizeIntInput(input) {
+        if (!input) {
+            return;
+        }
+        input.value = (input.value || '').toString().replace(/[^\d]/g, '');
+    }
+
+    function sanitizeDecimalInput(input) {
+        if (!input) {
+            return;
+        }
+        var raw = (input.value || '').toString().replace(/[^\d.]/g, '');
+        var parts = raw.split('.');
+        if (parts.length > 2) {
+            raw = parts.shift() + '.' + parts.join('');
+        }
+        input.value = raw;
     }
 
     function formatPeso(value) {
@@ -1238,6 +1720,11 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('input', function (event) {
         if (!event.target) {
             return;
+        }
+        if (event.target.classList.contains('numeric-only')) {
+            sanitizeIntInput(event.target);
+        } else if (event.target.classList.contains('decimal-only')) {
+            sanitizeDecimalInput(event.target);
         }
         if (event.target.classList.contains('matrix-no') || event.target.classList.contains('matrix-amount')) {
             updateMatrixRowTotal(event.target.closest('tr'));

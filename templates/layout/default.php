@@ -14,7 +14,7 @@
  * @var \App\View\AppView $this
  */
 
-$cakeDescription = 'SDO ACTIVTITY';
+$cakeDescription = 'PROJECT OARAS';
 ?>
 <!DOCTYPE html>
 <html>
@@ -237,6 +237,53 @@ $cakeDescription = 'SDO ACTIVTITY';
         .main-header.navbar .navbar-nav .nav-link {
             color: #ffffff;
         }
+        .btn {
+            border-radius: 0.6rem;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            border-width: 1px;
+            box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.16);
+            filter: brightness(1.02);
+        }
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.14);
+        }
+        .btn-sm {
+            padding: 0.35rem 0.7rem;
+            font-size: 0.85rem;
+        }
+        .btn-outline-light {
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+        .btn-outline-light:hover {
+            border-color: rgba(255, 255, 255, 0.9);
+        }
+        .btn-info,
+        .btn-success,
+        .btn-warning,
+        .btn-danger,
+        .btn-primary,
+        .btn-secondary {
+            color: #ffffff;
+        }
+        .btn-warning {
+            color: #1f2937;
+        }
+        .btn-warning:hover {
+            color: #1f2937;
+        }
+        @media (max-width: 768px) {
+            .main-header.navbar {
+                background-size: 100% 100%;
+                background-position: 0 0;
+            }
+        }
     </style>
 
 
@@ -366,11 +413,6 @@ $cakeDescription = 'SDO ACTIVTITY';
                                class="nav-link <?= $isActivityProposal ? 'active' : '' ?>">
                                 <i class="nav-icon fas fa-file-alt"></i>
                                 <p>Activity Proposal</p>
-                            </a>
-                            <a href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'project']) ?>"
-                               class="nav-link <?= $isProjectProposal ? 'active' : '' ?>">
-                                <i class="nav-icon fas fa-file"></i>
-                                <p>PD Proposal</p>
                             </a>
                         <?php endif; ?>
                         <?php if (in_array($auth['role'] ?? null, ['Superuser', 'Administrator', 'Approver'], true)): ?>

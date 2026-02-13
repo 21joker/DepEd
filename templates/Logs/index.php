@@ -42,6 +42,10 @@
   align-items: center;
   gap: 8px;
 }
+.logs-pagination .dataTables_info {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
 .logs-pagination .btn-group {
   flex-wrap: wrap;
 }
@@ -141,25 +145,29 @@
           </div>
           <?php
             $paginationTemplates = [
-              'number' => '<a class="btn btn-outline-secondary btn-sm" href="{{url}}">{{text}}</a>',
-              'current' => '<span class="btn btn-secondary btn-sm active">{{text}}</span>',
+              'prevActive' => '<li class="page-item"><a class="page-link" rel="prev" href="{{url}}">Previous</a></li>',
+              'prevDisabled' => '<li class="page-item disabled"><span class="page-link">Previous</span></li>',
+              'nextActive' => '<li class="page-item"><a class="page-link" rel="next" href="{{url}}">Next</a></li>',
+              'nextDisabled' => '<li class="page-item disabled"><span class="page-link">Next</span></li>',
+              'number' => '<li class="page-item"><a class="page-link" href="{{url}}">{{text}}</a></li>',
+              'current' => '<li class="page-item active"><span class="page-link">{{text}}</span></li>',
               'ellipsis' => '',
             ];
           ?>
           <div class="logs-pagination justify-content-between p-2">
-            <div>
-              <?= $this->Paginator->prev('Prev', ['class' => 'btn btn-outline-secondary btn-sm']) ?>
+            <div class="dataTables_info">
+              <?= $this->Paginator->counter('Showing {{start}} to {{end}} of {{count}} entries') ?>
             </div>
-            <div class="btn-group" role="group" aria-label="Pagination">
-              <?= $this->Paginator->numbers([
-                'tag' => 'div',
-                'templates' => $paginationTemplates,
-                'modulus' => 5,
-              ]) ?>
-            </div>
-            <div>
-              <?= $this->Paginator->next('Next', ['class' => 'btn btn-outline-secondary btn-sm']) ?>
-            </div>
+            <nav aria-label="Pagination">
+              <ul class="pagination pagination-sm mb-0">
+                <?= $this->Paginator->prev('Previous', ['templates' => $paginationTemplates]) ?>
+                <?= $this->Paginator->numbers([
+                  'templates' => $paginationTemplates,
+                  'modulus' => 5,
+                ]) ?>
+                <?= $this->Paginator->next('Next', ['templates' => $paginationTemplates]) ?>
+              </ul>
+            </nav>
           </div>
         </div>
       </div>

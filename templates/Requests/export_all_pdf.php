@@ -105,6 +105,7 @@ $pageTitle = $pageTitle ?? 'All Requests';
         <th>Grand Total</th>
         <th>SUB-ARO</th>
         <th>S/WFP</th>
+        <th>WFP</th>
         <th>AR</th>
         <th>ATC</th>
         <th>Participants</th>
@@ -134,6 +135,7 @@ $pageTitle = $pageTitle ?? 'All Requests';
           <td class="wrap"><?= h($summary['grand_total'] ?? '') ?></td>
           <td class="wrap"><?= h($summary['attachment_sub_aro'] ?? '') ?></td>
           <td class="wrap"><?= h($summary['attachment_sfwp'] ?? '') ?></td>
+          <td class="wrap"><?= h($summary['wfp_code'] ?? '') ?></td>
           <td class="wrap"><?= h($summary['attachment_ar'] ?? '') ?></td>
           <td class="wrap"><?= h($summary['attachment_ac'] ?? '') ?></td>
           <td class="wrap"><?= h($summary['attachment_list_participants'] ?? '') ?></td>
@@ -144,42 +146,4 @@ $pageTitle = $pageTitle ?? 'All Requests';
       <?php endforeach; ?>
     </tbody>
   </table>
-</div>
-
-<div class="print-footer">
-  <div class="proposal-footer" style="margin-top:0; padding-top:0;">
-    <div class="footer-content">
-      <div class="footer-logos">
-        <?= $this->Html->image('footer.jpg', [
-            'alt' => 'Footer',
-        ]) ?>
-      </div>
-      <div class="footer-text">
-        <div class="info-row">
-          <?= $this->Html->image('location.png', ['alt' => 'Location']) ?>
-          <div>Childrens Park, Caloocan, Santiago City, 3311</div>
-        </div>
-        <div>
-        </div>
-        <div class="info-row">
-          <?= $this->Html->image('number.png', ['alt' => 'Phone']) ?>
-          <div>(078) 682-0156</div>
-        </div>
-        <div>
-        </div>
-        <div class="info-row inline-row">
-          <?= $this->Html->image('email.png', ['alt' => 'Email']) ?>
-          <div><a href="mailto:santiago.city@deped.gov.ph">santiago.city@deped.gov.ph</a></div>
-        </div>
-        <div class="info-row inline-row">
-          <?= $this->Html->image('link.png', ['alt' => 'Website']) ?>
-          <div><a href="https://santiagocity.deped.gov.ph">https://santiagocity.deped.gov.ph</a></div>
-        </div>
-        <div class="info-row">
-          <?= $this->Html->image('facebook.png', ['alt' => 'Facebook']) ?>
-          <div><a href="https://www.facebook.com/SDOsantiagoCitySCTEx">https://www.facebook.com/SDOsantiagoCitySCTEx</a></div>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
