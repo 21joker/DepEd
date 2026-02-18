@@ -718,20 +718,153 @@ class UsersController extends AppController
             $ext = 'png';
         }
         $filename = sprintf(
-            'esignature_%s_%s.%s',
+            'esignature_%s_%s.png',
             date('Ymd_His'),
-            bin2hex(random_bytes(4)),
-            $ext
+            bin2hex(random_bytes(4))
         );
         $directory = WWW_ROOT . 'uploads' . DS . 'esignatures' . DS . $userId;
         if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
             return null;
         }
+        $targetPath = $directory . DS . $filename;
+        $fallbackFilename = preg_replace('/\\.png$/i', '.' . $ext, $filename);
+        $fallbackPath = $directory . DS . $fallbackFilename;
         try {
-            $file->moveTo($directory . DS . $filename);
+            $stream = $file->getStream();
+            $tmpPath = $stream->getMetadata('uri');
+            if (!is_string($tmpPath) || $tmpPath === '' || !is_file($tmpPath)) {
+                $tmpPath = $directory . DS . 'tmp_' . bin2hex(random_bytes(4));
+                $file->moveTo($tmpPath);
+            }
+            $converted = false;
+
+            if (class_exists('Imagick')) {
+                try {
+                    $img = new \Imagick($tmpPath);
+                    $img->setImageFormat('png');
+                    // Make background (sampled from corners) transparent.
+                    $img->setImageAlphaChannel(\Imagick::ALPHACHANNEL_ACTIVATE);
+                    $width = $img->getImageWidth();
+                    $height = $img->getImageHeight();
+                    $cornerSamples = [
+                        $img->getImagePixelColor(0, 0),
+                        $img->getImagePixelColor(max(0, $width - 1), 0),
+                        $img->getImagePixelColor(0, max(0, $height - 1)),
+                        $img->getImagePixelColor(max(0, $width - 1), max(0, $height - 1)),
+                    ];
+                    $avg = ['r' => 255, 'g' => 255, 'b' => 255];
+                    if (!empty($cornerSamples)) {
+                        $sum = ['r' => 0, 'g' => 0, 'b' => 0];
+                        $count = 0;
+                        foreach ($cornerSamples as $px) {
+                            $color = $px->getColor();
+                            if (!is_array($color)) {
+                                continue;
+                            }
+                            $sum['r'] += (int)($color['r'] ?? 255);
+                            $sum['g'] += (int)($color['g'] ?? 255);
+                            $sum['b'] += (int)($color['b'] ?? 255);
+                            $count++;
+                        }
+                        if ($count > 0) {
+                            $avg = [
+                                'r' => (int)round($sum['r'] / $count),
+                                'g' => (int)round($sum['g'] / $count),
+                                'b' => (int)round($sum['b'] / $count),
+                            ];
+                        }
+                    }
+                    $bgColor = sprintf('rgb(%d,%d,%d)', $avg['r'], $avg['g'], $avg['b']);
+                    $fuzz = 0.25 * 65535;
+                    if (method_exists('Imagick', 'getQuantum')) {
+                        $fuzz = 0.25 * \Imagick::getQuantum();
+                    }
+                    $img->setImageFuzz($fuzz);
+                    $img->transparentPaintImage($bgColor, 0.0, $fuzz, false);
+                    $img->setImageAlphaChannel(\Imagick::ALPHACHANNEL_ACTIVATE);
+                    if ($img->writeImage($targetPath)) {
+                        $converted = true;
+                    }
+                    $img->clear();
+                    $img->destroy();
+                } catch (\Throwable $e) {
+                    $converted = false;
+                }
+            }
+
+            if (!$converted && function_exists('imagecreatefromstring')) {
+                $imageData = @file_get_contents($tmpPath);
+                if ($imageData !== false) {
+                    $img = @imagecreatefromstring($imageData);
+                    if ($img !== false) {
+                        imagealphablending($img, false);
+                        imagesavealpha($img, true);
+                        // Remove background based on average of corners.
+                        $w = imagesx($img);
+                        $h = imagesy($img);
+                        $corners = [
+                            [0, 0],
+                            [$w - 1, 0],
+                            [0, $h - 1],
+                            [$w - 1, $h - 1],
+                        ];
+                        $sumR = 0;
+                        $sumG = 0;
+                        $sumB = 0;
+                        $count = 0;
+                        foreach ($corners as $c) {
+                            $px = imagecolorat($img, $c[0], $c[1]);
+                            $sumR += ($px >> 16) & 0xFF;
+                            $sumG += ($px >> 8) & 0xFF;
+                            $sumB += $px & 0xFF;
+                            $count++;
+                        }
+                        $bgR = (int)round($sumR / max(1, $count));
+                        $bgG = (int)round($sumG / max(1, $count));
+                        $bgB = (int)round($sumB / max(1, $count));
+                        $transparent = imagecolorallocatealpha($img, 255, 255, 255, 127);
+                        $tolerance = 90;
+                        for ($y = 0; $y < $h; $y++) {
+                            for ($x = 0; $x < $w; $x++) {
+                                $rgba = imagecolorat($img, $x, $y);
+                                $r = ($rgba >> 16) & 0xFF;
+                                $g = ($rgba >> 8) & 0xFF;
+                                $b = $rgba & 0xFF;
+                                $luma = (0.2126 * $r) + (0.7152 * $g) + (0.0722 * $b);
+                                if ($luma >= 200 || (abs($r - $bgR) <= $tolerance && abs($g - $bgG) <= $tolerance && abs($b - $bgB) <= $tolerance)) {
+                                    imagesetpixel($img, $x, $y, $transparent);
+                                }
+                            }
+                        }
+                        if (@imagepng($img, $targetPath)) {
+                            $converted = true;
+                        }
+                        imagedestroy($img);
+                    }
+                }
+            }
+
+            if ($converted) {
+                if (isset($tmpPath) && strpos($tmpPath, $directory) === 0 && is_file($tmpPath) && $tmpPath !== $targetPath) {
+                    @unlink($tmpPath);
+                }
+                return 'uploads/esignatures/' . $userId . '/' . $filename;
+            }
+
+            // Fallback: store the original file if conversion isn't possible.
+            if (isset($tmpPath) && is_file($tmpPath)) {
+                if (!@copy($tmpPath, $fallbackPath)) {
+                    return null;
+                }
+                if (strpos($tmpPath, $directory) === 0 && $tmpPath !== $fallbackPath) {
+                    @unlink($tmpPath);
+                }
+            } else {
+                $file->moveTo($fallbackPath);
+            }
+            return 'uploads/esignatures/' . $userId . '/' . $fallbackFilename;
         } catch (\Throwable $e) {
             return null;
         }
-        return 'uploads/esignatures/' . $userId . '/' . $filename;
     }
 }

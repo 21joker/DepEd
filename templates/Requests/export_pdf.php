@@ -201,35 +201,47 @@ body {
 .proposal-title {
     text-align: center;
     line-height: 1.2;
+    margin-top: -8px;
+}
+.print-header {
+    background: #fff;
 }
 .proposal-title .headline {
     font-family: "Old English Text MT", "UnifrakturCook", "Times New Roman", serif;
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
-    margin: 6px 0;
+    margin: 3px 0;
 }
 .proposal-title .seal {
-    max-width: 90px;
-    margin: 0 auto 8px;
+    max-width: 70px;
+    margin: 0 auto 4px;
 }
 .proposal-title .sub {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
 }
 .proposal-title .main {
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 700;
     text-transform: uppercase;
-    margin: 6px 0;
+    margin: 4px 0;
 }
 .proposal-title .small {
-    font-size: 12px;
+    font-size: 10px;
+}
+.proposal-title .divider {
+    border: 0;
+    border-top: 2px solid #111;
+    margin: 8px auto 0;
+    width: 92%;
 }
 .proposal-table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 12px;
+    break-inside: avoid;
+    page-break-inside: avoid;
 }
 .proposal-table th,
 .proposal-table td {
@@ -254,6 +266,8 @@ body {
 .budget-table {
     width: 100%;
     border-collapse: collapse;
+    break-inside: avoid;
+    page-break-inside: avoid;
 }
 .budget-table th,
 .budget-table td {
@@ -263,6 +277,8 @@ body {
 }
 .signature-block {
     text-align: center;
+    break-inside: avoid;
+    page-break-inside: avoid;
 }
 .signature-block .name {
     font-weight: 700;
@@ -271,6 +287,9 @@ body {
 .proposal-footer {
     margin-top: 10px;
     padding-top: 6px;
+}
+.print-footer {
+    margin-top: 12px;
 }
 .proposal-footer img {
     width: 100%;
@@ -323,12 +342,42 @@ body {
     display: inline-block;
 }
 @media print {
+    @page {
+        margin: 22mm 14mm 24mm 14mm;
+    }
     body { background: #fff; }
     .toolbar { display: none; }
     .sheet {
         margin: 0;
         border: none;
         width: 100%;
+        max-width: none;
+        padding: 0;
+    }
+    .print-header {
+        position: static;
+    }
+    .print-footer {
+        position: static;
+    }
+    table, tr, td, th {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    .budget-table,
+    .signature-block {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    .proposal-table {
+        break-inside: auto;
+        page-break-inside: auto;
+    }
+    .proposal-table thead {
+        display: table-header-group;
+    }
+    .proposal-table tfoot {
+        display: table-footer-group;
     }
 }
 </style>
@@ -339,7 +388,7 @@ body {
 </div>
 
 <div class="sheet">
-    <div class="proposal-title mb-3">
+    <div class="proposal-title mb-3 print-header">
         <div class="seal">
             <?= $this->Html->image('deped.png', [
                 'alt' => 'Seal',
@@ -350,6 +399,7 @@ body {
         <div class="headline">Department of Education</div>
         <div class="small">Region II - Cagayan Valley</div>
         <div class="sub">SCHOOLS DIVISION OF SANTIAGO CITY</div>
+        <hr class="divider">
         <div class="small" style="margin-top:8px;">Enclosure 1</div>
         <div class="main">Activity Proposal</div>
         <div class="small">For GAS-MOOE and Centrally Managed and Funded Activities</div>
@@ -531,9 +581,8 @@ body {
               </tr>
           </tbody>
     </table>
-__________________________________________________________________________________________________________
-
   <div class="print-footer">
+    <hr style="border:0; border-top:1px solid #2b2b2b; margin:0 0 6px;">
     <div class="proposal-footer" style="margin-top:0; padding-top:0;">
         <div class="footer-content">
             <div class="footer-logos">

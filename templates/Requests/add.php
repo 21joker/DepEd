@@ -585,7 +585,10 @@
                         <td class="label">PMIS Activity Code (AC):</td>
                         <td><?= $this->Form->text('pmis_activity_code', [
                             'class' => 'form-control',
+                            'id' => 'pmis-activity-code',
+                            'data-prefix' => 'AC-',
                             'value' => !empty($requestEntity->pmis_activity_code) ? $requestEntity->pmis_activity_code : 'AC-',
+                            'required' => true,
                         ]) ?></td>
                         <td>
                             <?php
@@ -602,7 +605,7 @@
                     </tr>
                     <tr>
                         <td class="label">Title of Activity:</td>
-                        <td colspan="2"><?= $this->Form->text('title_of_activity', ['class' => 'form-control']) ?></td>
+                        <td colspan="2"><?= $this->Form->text('title_of_activity', ['class' => 'form-control', 'required' => true]) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Proponent/s:</td>
@@ -685,6 +688,7 @@
                                             'class' => 'form-control',
                                             'label' => false,
                                             'value' => $venueChoice,
+                                            'required' => true,
                                         ]) ?>
                                     </div>
                                 </div>
@@ -734,15 +738,15 @@
                     </tr>
                     <tr>
                         <td class="label">Activity Description (Justification):</td>
-                        <td colspan="2"><?= $this->Form->textarea('activity_description', ['class' => 'form-control', 'rows' => 3]) ?></td>
+                        <td colspan="2"><?= $this->Form->textarea('activity_description', ['class' => 'form-control', 'rows' => 3, 'required' => true]) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Activity Objectives:</td>
-                        <td colspan="2"><?= $this->Form->textarea('activity_objectives', ['class' => 'form-control', 'rows' => 3]) ?></td>
+                        <td colspan="2"><?= $this->Form->textarea('activity_objectives', ['class' => 'form-control', 'rows' => 3, 'required' => true]) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Expected Output:</td>
-                        <td colspan="2"><?= $this->Form->textarea('expected_output', ['class' => 'form-control', 'rows' => 3]) ?></td>
+                        <td colspan="2"><?= $this->Form->textarea('expected_output', ['class' => 'form-control', 'rows' => 3, 'required' => true]) ?></td>
                     </tr>
                     <tr>
                         <td class="label">Monitoring & Evaluation:</td>
@@ -1034,9 +1038,48 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    var pmisInput = document.getElementById('pmis-activity-code');
+    if (pmisInput) {
+        var pmisPrefix = pmisInput.getAttribute('data-prefix') || 'AC-';
+
+        function enforcePmisPrefix() {
+            var current = pmisInput.value || '';
+            if (current.indexOf(pmisPrefix) !== 0) {
+                current = current.replace(pmisPrefix, '');
+                pmisInput.value = pmisPrefix + current;
+            }
+        }
+
+        pmisInput.addEventListener('focus', function () {
+            if (!pmisInput.value) {
+                pmisInput.value = pmisPrefix;
+            }
+            if (pmisInput.setSelectionRange) {
+                pmisInput.setSelectionRange(pmisInput.value.length, pmisInput.value.length);
+            }
+        });
+
+        pmisInput.addEventListener('keydown', function (event) {
+            var start = pmisInput.selectionStart;
+            var end = pmisInput.selectionEnd;
+            var prefixLength = pmisPrefix.length;
+            if ((event.key === 'Backspace' && start <= prefixLength && end <= prefixLength)
+                || (event.key === 'Delete' && start < prefixLength && end <= prefixLength)) {
+                event.preventDefault();
+            }
+        });
+
+        pmisInput.addEventListener('input', function () {
+            enforcePmisPrefix();
+        });
+
+        enforcePmisPrefix();
+    }
+
     var bookedDatesUrl = <?= json_encode($this->Url->build('/request/booked-dates')) ?>;
     var initialScheduleRows = <?= json_encode($scheduleRowsForJs ?? []) ?>;
     var bookedSlots = {};
+    var bookedRanges = {};
     var scheduleMonth = new Date();
     scheduleMonth.setDate(1);
     var slotRanges = {
@@ -1079,11 +1122,28 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             bookedSlots = {};
+            bookedRanges = {};
             data.slots.forEach(function (value) {
                 if (typeof value === 'string' && value.indexOf('__') !== -1) {
                     bookedSlots[value] = true;
                 }
             });
+            if (Array.isArray(data.ranges)) {
+                data.ranges.forEach(function (range) {
+                    if (!range || !range.date) {
+                        return;
+                    }
+                    var start = typeof range.start === 'number' ? range.start : parseInt(range.start, 10);
+                    var end = typeof range.end === 'number' ? range.end : parseInt(range.end, 10);
+                    if (isNaN(start) || isNaN(end) || end <= start) {
+                        return;
+                    }
+                    if (!bookedRanges[range.date]) {
+                        bookedRanges[range.date] = [];
+                    }
+                    bookedRanges[range.date].push([start, end]);
+                });
+            }
             renderActivityScheduleCalendar();
         };
         if (window.fetch) {
@@ -1167,11 +1227,74 @@ document.addEventListener('DOMContentLoaded', function () {
         return aStart < bEnd && bStart < aEnd;
     }
 
+    function isSlotFullyBooked(dateValue, slotKey) {
+        var ranges = bookedRanges[dateValue] || [];
+        if (!ranges.length) {
+            return false;
+        }
+        var window = slotKey === 'am' ? slotRanges.am : slotRanges.pm;
+        var windowStart = timeToMinutes(window.from);
+        var windowEnd = timeToMinutes(window.to);
+        if (windowStart === null || windowEnd === null) {
+            return false;
+        }
+        var merged = ranges
+            .filter(function (range) {
+                return rangeOverlaps(range[0], range[1], windowStart, windowEnd);
+            })
+            .map(function (range) {
+                return [Math.max(range[0], windowStart), Math.min(range[1], windowEnd)];
+            })
+            .sort(function (a, b) {
+                return a[0] - b[0];
+            });
+        if (!merged.length) {
+            return false;
+        }
+        var currentStart = merged[0][0];
+        var currentEnd = merged[0][1];
+        for (var i = 1; i < merged.length; i += 1) {
+            var next = merged[i];
+            if (next[0] > currentEnd) {
+                return false;
+            }
+            currentEnd = Math.max(currentEnd, next[1]);
+        }
+        return currentStart <= windowStart && currentEnd >= windowEnd;
+    }
+
+    function minutesToLabel(minutes) {
+        if (minutes === null || isNaN(minutes)) {
+            return '';
+        }
+        var total = Math.max(0, Math.min(24 * 60 - 1, minutes));
+        var hours = Math.floor(total / 60);
+        var mins = total % 60;
+        var suffix = hours >= 12 ? 'PM' : 'AM';
+        var displayHours = hours % 12;
+        if (displayHours === 0) {
+            displayHours = 12;
+        }
+        return displayHours + ':' + pad(mins) + ' ' + suffix;
+    }
+
     function isRangeBlocked(dateValue, timeFrom, timeTo) {
         var start = timeToMinutes(timeFrom);
         var end = timeToMinutes(timeTo);
         if (start === null || end === null || start >= end) {
             return { blocked: false };
+        }
+        if (bookedRanges[dateValue] && bookedRanges[dateValue].length) {
+            var ranges = bookedRanges[dateValue];
+            for (var i = 0; i < ranges.length; i += 1) {
+                var range = ranges[i];
+                if (rangeOverlaps(start, end, range[0], range[1])) {
+                    return {
+                        blocked: true,
+                        label: minutesToLabel(range[0]) + ' to ' + minutesToLabel(range[1])
+                    };
+                }
+            }
         }
         var amKey = buildKey(dateValue, 'am');
         var pmKey = buildKey(dateValue, 'pm');
@@ -1343,8 +1466,8 @@ document.addEventListener('DOMContentLoaded', function () {
             dayDate.setDate(start.getDate() + i);
             var dateValue = toYmd(dayDate);
             var isOutside = dayDate.getMonth() !== scheduleMonth.getMonth();
-            var isAmBooked = isBookedSlot(dateValue, 'am');
-            var isPmBooked = isBookedSlot(dateValue, 'pm');
+            var isAmBooked = isBookedSlot(dateValue, 'am') || isSlotFullyBooked(dateValue, 'am');
+            var isPmBooked = isBookedSlot(dateValue, 'pm') || isSlotFullyBooked(dateValue, 'pm');
             var amKey = buildKey(dateValue, 'am');
             var pmKey = buildKey(dateValue, 'pm');
             var amClass = selectedSlots[amKey] ? ' is-selected' : '';
@@ -1769,6 +1892,39 @@ document.addEventListener('DOMContentLoaded', function () {
     var proposalForm = document.getElementById('proposal-form');
     if (proposalForm) {
         proposalForm.addEventListener('submit', function (event) {
+            var scheduleRows = document.querySelectorAll('#schedule-rows input[name="activity_schedule_date[]"]');
+            if (!scheduleRows || scheduleRows.length === 0) {
+                event.preventDefault();
+                alert('Please add at least one Activity Schedule.');
+                return;
+            }
+            var sourceTotal = getSourceFundTotal();
+            if (!Number.isFinite(sourceTotal) || sourceTotal <= 0) {
+                event.preventDefault();
+                alert('Please enter at least one Source of Fund amount.');
+                return;
+            }
+            var hasMatrixEntry = false;
+            document.querySelectorAll('#expenditure-matrix tbody tr').forEach(function (row) {
+                var natureInput = row.querySelector('input[name^="expenditure_nature"]');
+                var noInput = row.querySelector('input[name^="expenditure_no"]');
+                var amountInput = row.querySelector('input[name^="expenditure_amount"]');
+                if (!natureInput || !noInput || !amountInput) {
+                    return;
+                }
+                var natureValue = (natureInput.value || '').trim();
+                var noValue = normalizeNumber(noInput.value || '');
+                var amountValue = normalizeNumber(amountInput.value || '');
+                if (natureValue !== '' && noValue !== '' && amountValue !== '') {
+                    hasMatrixEntry = true;
+                }
+            });
+            if (!hasMatrixEntry) {
+                event.preventDefault();
+                alert('Please fill in at least one Expenditure Matrix row.');
+                return;
+            }
+
             var budgetInput = document.querySelector('input[name="budget_requirement"]');
             var grandInput = document.querySelector('input[name="grand_total"]');
             var budgetValue = Number(normalizeNumber(budgetInput ? budgetInput.value : ''));

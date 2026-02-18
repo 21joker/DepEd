@@ -78,12 +78,82 @@ class LogsController extends AppController
             });
         }
 
+        $chartQuery = $this->LoginLogs->find();
+        if ($period === 'daily' && $date !== '') {
+            $chartQuery->where(function ($exp) use ($date) {
+                return $exp->like('LoginLogs.created', $date . '%');
+            });
+        } elseif ($period === 'monthly' && $month !== '') {
+            $chartQuery->where(function ($exp) use ($month) {
+                return $exp->like('LoginLogs.created', $month . '%');
+            });
+        } elseif ($period === 'yearly' && $year !== '') {
+            $chartQuery->where(function ($exp) use ($year) {
+                return $exp->like('LoginLogs.created', $year . '%');
+            });
+        } else {
+            $chartStart = $now->subDays(29)->format('yyyy-MM-dd 00:00:00');
+            $chartQuery->where(function ($exp) use ($chartStart) {
+                return $exp->gte('LoginLogs.created', $chartStart);
+            });
+        }
+        if ($search !== '') {
+            $chartQuery->where(function ($exp) use ($search) {
+                return $exp->or_([
+                    'LoginLogs.username LIKE' => '%' . $search . '%',
+                    'LoginLogs.role LIKE' => '%' . $search . '%',
+                ]);
+            });
+        }
+
+        $chartRows = $chartQuery
+            ->select([
+                'log_date' => $chartQuery->func()->date(['LoginLogs.created' => 'identifier']),
+                'total' => $chartQuery->func()->count('*'),
+            ])
+            ->group('log_date')
+            ->orderAsc('log_date')
+            ->all();
+
+        $chartStartDate = null;
+        $chartEndDate = null;
+        if ($period === 'daily' && $date !== '') {
+            $chartStartDate = FrozenTime::parse($date)->startOfDay();
+            $chartEndDate = FrozenTime::parse($date)->endOfDay();
+        } elseif ($period === 'monthly' && $month !== '') {
+            $chartStartDate = FrozenTime::parse($month . '-01')->startOfMonth();
+            $chartEndDate = FrozenTime::parse($month . '-01')->endOfMonth();
+        } elseif ($period === 'yearly' && $year !== '') {
+            $chartStartDate = FrozenTime::parse($year . '-01-01')->startOfYear();
+            $chartEndDate = FrozenTime::parse($year . '-12-31')->endOfYear();
+        } else {
+            $chartStartDate = $now->subDays(29)->startOfDay();
+            $chartEndDate = $now->endOfDay();
+        }
+
+        $chartMap = [];
+        foreach ($chartRows as $row) {
+            $key = (string)($row->log_date ?? '');
+            if ($key !== '') {
+                $chartMap[$key] = (int)($row->total ?? 0);
+            }
+        }
+        $chartLabels = [];
+        $chartCounts = [];
+        $cursor = $chartStartDate->copy();
+        while ($cursor <= $chartEndDate) {
+            $key = $cursor->i18nFormat('yyyy-MM-dd');
+            $chartLabels[] = $cursor->i18nFormat('MMM d');
+            $chartCounts[] = $chartMap[$key] ?? 0;
+            $cursor = $cursor->addDays(1);
+        }
+
         $loginLogs = $this->paginate($loginQuery, [
             'limit' => 10,
         ]);
         $userLogs = $usersQuery->all();
 
-        $this->set(compact('loginLogs', 'userLogs', 'period', 'date', 'month', 'year', 'search'));
+        $this->set(compact('loginLogs', 'userLogs', 'period', 'date', 'month', 'year', 'search', 'chartLabels', 'chartCounts'));
     }
 
     public function export()

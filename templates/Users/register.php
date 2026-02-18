@@ -8,13 +8,13 @@
             <p class="login-box-msg">Register an account</p>
             <?= $this->Form->create(null, ['type' => 'file']) ?>
             <div class="form-group mb-3">
-                <?= $this->Form->control('id_number', ['class' => 'form-control', 'placeholder' => 'ID Number']) ?>
+                <?= $this->Form->control('id_number', ['class' => 'form-control', 'placeholder' => 'ID Number', 'required' => true]) ?>
             </div>
             <div class="form-group mb-3">
-                <?= $this->Form->control('username', ['class' => 'form-control', 'placeholder' => 'Username']) ?>
+                <?= $this->Form->control('username', ['class' => 'form-control', 'placeholder' => 'Username', 'required' => true]) ?>
             </div>
             <div class="form-group mb-3">
-                <?= $this->Form->control('first_name', ['class' => 'form-control', 'placeholder' => 'First Name']) ?>
+                <?= $this->Form->control('first_name', ['class' => 'form-control', 'placeholder' => 'First Name', 'required' => true]) ?>
             </div>
             <div class="form-group mb-3">
                 <?= $this->Form->control('middle_initial', [
@@ -22,11 +22,12 @@
                     'placeholder' => 'Middle Innitial',
                     'label' => 'Middle Innitial',
                     'maxlength' => 2,
-                    'pattern' => '[A-Za-z]\\.?'
+                    'pattern' => '[A-Za-z]\\.?',
+                    'required' => true
                 ]) ?>
             </div>
             <div class="form-group mb-3">
-                <?= $this->Form->control('last_name', ['class' => 'form-control', 'placeholder' => 'Last name']) ?>
+                <?= $this->Form->control('last_name', ['class' => 'form-control', 'placeholder' => 'Last name', 'required' => true]) ?>
             </div>
             <div class="form-group mb-3">
                 <?= $this->Form->control('suffix', ['class' => 'form-control', 'placeholder' => 'Suffix']) ?>
@@ -41,7 +42,7 @@
                 <?= $this->Form->control('position', ['class' => 'form-control', 'placeholder' => 'Position']) ?>
             </div>
             <div class="form-group mb-3">
-                <?= $this->Form->control('email_address', ['class' => 'form-control', 'placeholder' => 'Email Address']) ?>
+                <?= $this->Form->control('email_address', ['class' => 'form-control', 'placeholder' => 'Email Address', 'required' => true]) ?>
             </div>
             <div class="form-group mb-3">
                 <?= $this->Form->control('office', [
@@ -51,17 +52,20 @@
                         'SGOD' => 'SGOD',
                         'CID' => 'CID',
                         'OSDS' => 'OSDS',
-                    ]
+                    ],
+                    'required' => true
                 ]) ?>
             </div>
             <div class="form-group mb-3">
-                <?= $this->Form->control('section_unit', ['class' => 'form-control', 'placeholder' => 'Section/Unit']) ?>
+                <?= $this->Form->control('section_unit', ['class' => 'form-control', 'placeholder' => 'Section/Unit', 'required' => true]) ?>
             </div>
             <div class="form-group mb-3">
                 <?= $this->Form->control('esignature', [
                     'type' => 'file',
                     'class' => 'form-control',
-                    'accept' => '.png,.jpg,.jpeg'
+                    'accept' => '.png,.jpg,.jpeg',
+                    'label' => 'Esignature',
+                    'required' => true
                 ]) ?>
             </div>
             <div class="row">

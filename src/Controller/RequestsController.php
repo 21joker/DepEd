@@ -2515,6 +2515,7 @@ class RequestsController extends AppController
 
         $dates = [];
         $slots = [];
+        $ranges = [];
         $slotKey = function (string $dateValue, string $slot): string {
             return $dateValue . '__' . $slot;
         };
@@ -2544,11 +2545,86 @@ class RequestsController extends AppController
 
             return $hour < 12 ? 'am' : 'pm';
         };
+        $timeToMinutes = function (string $value): ?int {
+            $value = trim($value);
+            if ($value === '') {
+                return null;
+            }
+            if (!preg_match('/(\d{1,2}):(\d{2})\s*(am|pm)?/i', $value, $match)) {
+                return null;
+            }
+            $hour = (int)$match[1];
+            $minute = (int)$match[2];
+            $ampm = strtolower($match[3] ?? '');
+            if ($ampm === 'am') {
+                if ($hour === 12) {
+                    $hour = 0;
+                }
+            } elseif ($ampm === 'pm') {
+                if ($hour < 12) {
+                    $hour += 12;
+                }
+            }
+            if ($hour < 0 || $hour > 23 || $minute < 0 || $minute > 59) {
+                return null;
+            }
+            return ($hour * 60) + $minute;
+        };
         $appendBooked = function (string $dateValue, ?string $slot = null) use (&$dates, &$slots, $slotKey): void {
             $dates[] = $dateValue;
             if ($slot === 'am' || $slot === 'pm') {
                 $slots[] = $slotKey($dateValue, $slot);
             }
+        };
+        $appendRange = function (string $dateValue, int $start, int $end) use (&$ranges): void {
+            if ($end <= $start) {
+                return;
+            }
+            $ranges[] = [
+                'date' => $dateValue,
+                'start' => $start,
+                'end' => $end,
+            ];
+        };
+        $slotWindows = [
+            'am' => ['start' => 8 * 60, 'end' => 12 * 60],
+            'pm' => ['start' => 13 * 60, 'end' => 17 * 60],
+        ];
+        $slotCoverage = [];
+        $addCoverage = function (string $dateValue, string $slot, int $start, int $end) use (&$slotCoverage): void {
+            if ($end <= $start) {
+                return;
+            }
+            if (!isset($slotCoverage[$dateValue])) {
+                $slotCoverage[$dateValue] = [];
+            }
+            if (!isset($slotCoverage[$dateValue][$slot])) {
+                $slotCoverage[$dateValue][$slot] = [];
+            }
+            $slotCoverage[$dateValue][$slot][] = [$start, $end];
+        };
+        $isFullCovered = function (array $intervals, int $windowStart, int $windowEnd): bool {
+            usort($intervals, function ($a, $b) {
+                return $a[0] <=> $b[0];
+            });
+            $merged = [];
+            foreach ($intervals as $interval) {
+                if (empty($merged)) {
+                    $merged[] = $interval;
+                    continue;
+                }
+                $lastIndex = count($merged) - 1;
+                $last = $merged[$lastIndex];
+                if ($interval[0] <= $last[1]) {
+                    $merged[$lastIndex][1] = max($last[1], $interval[1]);
+                } else {
+                    $merged[] = $interval;
+                }
+            }
+            if (count($merged) !== 1) {
+                return false;
+            }
+            return $merged[0][0] <= $windowStart && $merged[0][1] >= $windowEnd;
         };
 
         foreach ($rows as $row) {
@@ -2571,21 +2647,48 @@ class RequestsController extends AppController
                         if ($dateValue === null) {
                             continue;
                         }
-                        $slot = $slotFromTime((string)($scheduleRow['time_from'] ?? ''));
-                        $appendBooked($dateValue, $slot);
+                        $timeFromRaw = (string)($scheduleRow['time_from'] ?? '');
+                        $timeToRaw = (string)($scheduleRow['time_to'] ?? '');
+                        $fromMinutes = $timeToMinutes($timeFromRaw);
+                        $toMinutes = $timeToMinutes($timeToRaw);
+                        if ($fromMinutes === null || $toMinutes === null) {
+                            $slot = $slotFromTime($timeFromRaw);
+                            $appendBooked($dateValue, $slot);
+                            $hasStructuredSchedule = true;
+                            continue;
+                        }
+                        $appendRange($dateValue, $fromMinutes, $toMinutes);
+                        foreach ($slotWindows as $slotName => $window) {
+                            $start = max($fromMinutes, $window['start']);
+                            $end = min($toMinutes, $window['end']);
+                            if ($end > $start) {
+                                $addCoverage($dateValue, $slotName, $start, $end);
+                            }
+                        }
                         $hasStructuredSchedule = true;
                     }
                 }
             }
 
-            if (property_exists($row, 'activity_schedule_dates')) {
+            if (!$hasStructuredSchedule && property_exists($row, 'activity_schedule_dates')) {
                 $legacyDate = $normalizeDate((string)($row->activity_schedule_dates ?? ''));
                 if ($legacyDate !== null) {
                     $legacySlot = null;
+                    $legacyFromMinutes = null;
+                    $legacyToMinutes = null;
                     if (property_exists($row, 'activity_schedule_time_from')) {
-                        $legacySlot = $slotFromTime((string)($row->activity_schedule_time_from ?? ''));
+                        $legacyFromRaw = (string)($row->activity_schedule_time_from ?? '');
+                        $legacyToRaw = property_exists($row, 'activity_schedule_time_to')
+                            ? (string)($row->activity_schedule_time_to ?? '')
+                            : '';
+                        $legacySlot = $slotFromTime($legacyFromRaw);
+                        $legacyFromMinutes = $timeToMinutes($legacyFromRaw);
+                        $legacyToMinutes = $timeToMinutes($legacyToRaw);
                     }
                     $appendBooked($legacyDate, $legacySlot);
+                    if ($legacyFromMinutes !== null && $legacyToMinutes !== null) {
+                        $appendRange($legacyDate, $legacyFromMinutes, $legacyToMinutes);
+                    }
                     $hasStructuredSchedule = true;
                 }
             }
@@ -2618,10 +2721,33 @@ class RequestsController extends AppController
                     continue;
                 }
                 $slot = null;
-                if (preg_match('/\\b(\\d{1,2}:\\d{2})\\b/', $part, $timeMatch)) {
-                    $slot = $slotFromTime((string)($timeMatch[1] ?? ''));
+                $times = [];
+                if (preg_match_all('/\\b(\\d{1,2}:\\d{2}\\s*(?:am|pm)?)\\b/i', $part, $timeMatches)) {
+                    $times = $timeMatches[1] ?? [];
                 }
-                $appendBooked($dateValue, $slot);
+                if (count($times) >= 2) {
+                    $fromMinutes = $timeToMinutes((string)$times[0]);
+                    $toMinutes = $timeToMinutes((string)$times[1]);
+                    if ($fromMinutes !== null && $toMinutes !== null) {
+                        $appendRange($dateValue, $fromMinutes, $toMinutes);
+                    }
+                } elseif (!empty($times)) {
+                    $slot = $slotFromTime((string)($times[0] ?? ''));
+                    $appendBooked($dateValue, $slot);
+                } else {
+                    $appendBooked($dateValue, null);
+                }
+            }
+        }
+
+        foreach ($slotCoverage as $dateValue => $coverageBySlot) {
+            foreach ($slotWindows as $slotName => $window) {
+                if (empty($coverageBySlot[$slotName])) {
+                    continue;
+                }
+                if ($isFullCovered($coverageBySlot[$slotName], $window['start'], $window['end'])) {
+                    $appendBooked($dateValue, $slotName);
+                }
             }
         }
 
@@ -2630,7 +2756,7 @@ class RequestsController extends AppController
         sort($dates);
         sort($slots);
 
-        $payload = json_encode(['dates' => $dates, 'slots' => $slots]);
+        $payload = json_encode(['dates' => $dates, 'slots' => $slots, 'ranges' => $ranges]);
         return $this->response
             ->withType('json')
             ->withStringBody($payload ?: '{"dates":[],"slots":[]}');
