@@ -210,9 +210,65 @@
     font-size: 12px;
     min-height: 38px;
 }
+.manual-schedule-controls .schedule-label {
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: block;
+    font-size: 13px;
+}
+.manual-schedule-controls .schedule-input {
+    border: 1px solid #9fb4c8 !important;
+    background: #ffffff !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+    min-height: 40px;
+    padding: 6px 10px;
+    font-size: 14px;
+}
+.manual-schedule-controls .schedule-input:focus {
+    border-color: #007bff !important;
+    box-shadow: 0 0 0 0.12rem rgba(0, 123, 255, 0.22) !important;
+}
+.manual-schedule-controls .schedule-add-btn {
+    min-height: 40px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    border-width: 2px;
+}
+.manual-schedule-controls .schedule-add-btn i {
+    margin-right: 6px;
+}
 @media (max-width: 767.98px) {
     .activity-schedule-day {
         min-height: 90px;
+    }
+    .manual-schedule-controls .col-md-4,
+    .manual-schedule-controls .col-md-3,
+    .manual-schedule-controls .col-md-2 {
+        margin-bottom: 8px;
+    }
+    .target-participants-grid.form-row {
+        margin-left: -4px;
+        margin-right: -4px;
+        border: none;
+    }
+    .target-participants-grid .tp-cell {
+        padding: 8px;
+        border: none;
+    }
+    .target-participants-grid .tp-field {
+        border: 1px solid #2b2b2b;
+        padding: 8px;
+        background: #fff;
+    }
+    .target-participants-grid .tp-mobile-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+    }
+    .target-participants-grid .form-control {
+        min-height: 38px;
     }
 }
 .target-participants-grid {
@@ -514,14 +570,14 @@
                 $venueOptions = [
                     '' => 'Modality',
                     'ONLINE' => 'ONLINE',
-                    'FaceToFace' => 'FaceToFace',
+                    'InPerson' => 'InPerson',
                     'Hybrid' => 'Hybrid',
                 ];
                 $venueValue = trim((string)($requestEntity->venue_modality ?? ''));
                 $venueChoice = '';
                 $venueDetails = '';
                 if ($venueValue !== '') {
-                    foreach (['ONLINE', 'FaceToFace', 'Hybrid'] as $option) {
+                    foreach (['ONLINE', 'InPerson', 'Hybrid'] as $option) {
                         if (stripos($venueValue, $option) === 0) {
                             $venueChoice = $option;
                             $venueDetails = trim((string)preg_replace('/^' . preg_quote($option, '/') . '\\s*[-:]?\\s*/i', '', $venueValue));
@@ -637,22 +693,23 @@
                                       ];
                                   }, $scheduleRows));
                               ?>
-                              <div class="form-row align-items-end">
+                              <div class="form-row align-items-end manual-schedule-controls">
                                   <div class="col-md-4">
-                                      <label for="manual-schedule-date" class="mb-1">Date</label>
-                                      <input type="date" id="manual-schedule-date" class="form-control">
+                                      <label for="manual-schedule-date" class="schedule-label">Date</label>
+                                      <input type="date" id="manual-schedule-date" class="form-control schedule-input" aria-label="Activity date">
                                   </div>
                                   <div class="col-md-3">
-                                      <label for="manual-schedule-from" class="mb-1">Time From</label>
-                                      <input type="time" id="manual-schedule-from" class="form-control">
+                                      <label for="manual-schedule-from" class="schedule-label">Time From</label>
+                                      <input type="time" id="manual-schedule-from" class="form-control schedule-input" aria-label="Start time">
                                   </div>
                                   <div class="col-md-3">
-                                      <label for="manual-schedule-to" class="mb-1">Time To</label>
-                                      <input type="time" id="manual-schedule-to" class="form-control">
+                                      <label for="manual-schedule-to" class="schedule-label">Time To</label>
+                                      <input type="time" id="manual-schedule-to" class="form-control schedule-input" aria-label="End time">
                                   </div>
                                   <div class="col-md-2">
-                                      <button type="button" class="btn btn-outline-primary btn-sm w-100" id="manual-schedule-add">
-                                          Add
+                                      <button type="button" class="btn btn-primary btn-sm w-100 schedule-add-btn" id="manual-schedule-add" aria-label="Add schedule entry">
+                                          <i class="fas fa-plus-circle" aria-hidden="true"></i>
+                                          Add Time
                                       </button>
                                   </div>
                               </div>
@@ -697,41 +754,57 @@
                     <tr>
                         <td class="label">Target Participant:</td>
                           <td colspan="2">
-                              <div class="form-row text-center target-participants-grid">
-                                  <div class="col-md-3 font-weight-bold tp-cell">Participant:</div>
-                                  <div class="col-md-3 font-weight-bold tp-cell">Male:</div>
-                                  <div class="col-md-3 font-weight-bold tp-cell">Female:</div>
-                                  <div class="col-md-3 font-weight-bold tp-cell">Total:</div>
+                              <div class="form-row text-center target-participants-grid d-none d-md-flex">
+                                  <div class="col-6 col-md-3 font-weight-bold tp-cell">Participant:</div>
+                                  <div class="col-6 col-md-3 font-weight-bold tp-cell">Male:</div>
+                                  <div class="col-6 col-md-3 font-weight-bold tp-cell">Female:</div>
+                                  <div class="col-6 col-md-3 font-weight-bold tp-cell">Total:</div>
                               </div>
                               <div class="form-row target-participants-grid">
-                                  <div class="col-md-3 tp-cell">
+                                  <div class="col-6 col-md-3 tp-cell">
+                                      <div class="tp-field">
+                                      <label for="target-participants-label" class="tp-mobile-label d-md-none">Participant</label>
                                       <?= $this->Form->text('target_participants_label', [
+                                          'id' => 'target-participants-label',
                                           'class' => 'form-control',
                                           'value' => $targetParticipant,
                                       ]) ?>
+                                      </div>
                                   </div>
-                                  <div class="col-md-3 tp-cell">
+                                  <div class="col-6 col-md-3 tp-cell">
+                                      <div class="tp-field">
+                                      <label for="target-participants-male" class="tp-mobile-label d-md-none">Male</label>
                                       <?= $this->Form->text('target_participants_male', [
+                                          'id' => 'target-participants-male',
                                           'class' => 'form-control numeric-only',
                                           'inputmode' => 'numeric',
                                           'pattern' => '[0-9]*',
                                           'value' => $targetMale,
                                       ]) ?>
+                                      </div>
                                   </div>
-                                  <div class="col-md-3 tp-cell">
+                                  <div class="col-6 col-md-3 tp-cell">
+                                      <div class="tp-field">
+                                      <label for="target-participants-female" class="tp-mobile-label d-md-none">Female</label>
                                       <?= $this->Form->text('target_participants_female', [
+                                          'id' => 'target-participants-female',
                                           'class' => 'form-control numeric-only',
                                           'inputmode' => 'numeric',
                                           'pattern' => '[0-9]*',
                                           'value' => $targetFemale,
                                       ]) ?>
+                                      </div>
                                   </div>
-                                  <div class="col-md-3 tp-cell">
+                                  <div class="col-6 col-md-3 tp-cell">
+                                      <div class="tp-field">
+                                      <label for="target-participants-total" class="tp-mobile-label d-md-none">Total</label>
                                       <?= $this->Form->text('target_participants_total', [
+                                          'id' => 'target-participants-total',
                                           'class' => 'form-control',
                                           'value' => $targetTotal,
                                           'readonly' => true,
                                     ]) ?>
+                                      </div>
                                 </div>
                             </div>
                         </td>

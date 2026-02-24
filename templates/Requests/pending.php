@@ -414,11 +414,12 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
                     <?php endif; ?>
 
                       <?php if ($showActions && !$isFullyApproved): ?>
-                        <?= $this->Form->postLink(
-                          'Approve',
-                          ['controller' => 'Requests', 'action' => 'approve', $request->id],
-                          ['class' => 'btn btn-success btn-sm', 'confirm' => 'Approve this request?']
-                        ) ?>
+                        <button
+                          type="button"
+                          class="btn btn-success btn-sm approve-btn"
+                          data-request-id="<?= (int)$request->id ?>"
+                          data-request-title="<?= h($request->title ?? '') ?>"
+                        >Approve</button>
 
                         <button
                           type="button"
@@ -497,6 +498,30 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
   })();
 </script>
 
+<div class="modal fade" id="approve-modal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Approve Request</h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form id="approve-form" method="post">
+        <div class="modal-body">
+          <input type="hidden" name="_csrfToken" value="<?= h($csrfToken) ?>">
+          <p class="mb-2">Are you sure you want to approve this request?</p>
+          <div class="text-muted small" id="approve-request-title"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Yes, Approve</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="review-modal" tabindex="-1" role="dialog" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -554,6 +579,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  var approveModal = $('#approve-modal');
+  var approveForm = document.getElementById('approve-form');
+  var approveTitle = document.getElementById('approve-request-title');
+  if (approveForm && approveTitle) {
+    document.querySelectorAll('.approve-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var requestId = btn.getAttribute('data-request-id');
+        var requestTitle = btn.getAttribute('data-request-title') || '';
+        approveForm.action = <?= json_encode($this->Url->build(['controller' => 'Requests', 'action' => 'approve'])) ?> + '/' + requestId;
+        approveTitle.textContent = requestTitle ? 'Subject: ' + requestTitle : '';
+        approveModal.modal('show');
+      });
+    });
+  }
+
   var modal = $('#review-modal');
   var form = document.getElementById('review-form');
   var remarks = document.getElementById('review-remarks');

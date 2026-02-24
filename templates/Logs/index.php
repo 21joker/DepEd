@@ -316,6 +316,22 @@
               </tbody>
             </table>
           </div>
+          <div class="logs-pagination justify-content-between p-2">
+            <div class="dataTables_info">
+              <?= $this->Paginator->counter('Showing {{start}} to {{end}} of {{count}} entries', ['scope' => 'users']) ?>
+            </div>
+            <nav aria-label="Pagination">
+              <ul class="pagination pagination-sm mb-0">
+                <?= $this->Paginator->prev('Previous', ['templates' => $paginationTemplates, 'scope' => 'users']) ?>
+                <?= $this->Paginator->numbers([
+                  'templates' => $paginationTemplates,
+                  'modulus' => 5,
+                  'scope' => 'users',
+                ]) ?>
+                <?= $this->Paginator->next('Next', ['templates' => $paginationTemplates, 'scope' => 'users']) ?>
+              </ul>
+            </nav>
+          </div>
         </div>
       </div>
     </div>

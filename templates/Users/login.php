@@ -5,7 +5,7 @@
                 <video class="login-logo-video" autoplay muted loop playsinline>
                     <source src="img/sdo.mp4" type="video/mp4">
                 </video>
-                <h1 class="login-title">ONLINE ACTIVITY PROPOSAL AND APPROVAL SYSTEM</h1>
+                <h1 class="login-title">Online Activity Request and Approval System</h1>
                 <p class="login-subtitle">Sign in to continue</p>
             </div>
 

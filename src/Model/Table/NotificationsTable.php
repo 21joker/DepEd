@@ -49,6 +49,10 @@ class NotificationsTable extends Table
             ->allowEmptyString('ref_id');
 
         $validator
+            ->integer('ref_request_id')
+            ->allowEmptyString('ref_request_id');
+
+        $validator
             ->boolean('is_read')
             ->requirePresence('is_read', 'create')
             ->notEmptyString('is_read');

@@ -382,6 +382,9 @@ function _approval_label(?string $status): string
                   continue;
               }
               $reviewer = $approval->user->username ?? null;
+              if (is_string($reviewer) && strcasecmp($reviewer, 'SMMNE') === 0) {
+                  $reviewer = 'SMM&E';
+              }
               $remarksList[] = [
                   'name' => $reviewer ?: 'Reviewer',
                   'remark' => $remark,

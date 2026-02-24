@@ -283,7 +283,7 @@ class RequestsController extends AppController
                     );
                 }
                 $this->request->getSession()->write('last_request_id', $requestEntity->id);
-                $this->notifyAdmins($requestEntity->id);
+                $this->notifyAdmins($requestEntity->id, $title, $rawName);
                 $this->Flash->success('Request submitted. Pending approval by all admins.');
                 return $this->redirect(['action' => 'add']);
             }
@@ -1314,8 +1314,12 @@ class RequestsController extends AppController
                 }
                 foreach ($remarkRows as $row) {
                     $adminId = (int)($row['admin_user_id'] ?? 0);
+                    $reviewerName = $userMap[$adminId] ?? 'Reviewer';
+                    if (is_string($reviewerName) && strcasecmp($reviewerName, 'SMMNE') === 0) {
+                        $reviewerName = 'SMM&E';
+                    }
                     $remarksList[] = [
-                        'name' => $userMap[$adminId] ?? 'Reviewer',
+                        'name' => $reviewerName,
                         'remark' => (string)($row['remarks'] ?? ''),
                         'created' => $row['created'] ?? null,
                     ];
@@ -1610,6 +1614,7 @@ class RequestsController extends AppController
         $this->request->allowMethod(['post']);
 
         $requestEntity = $this->Requests->get($id);
+        $previousStatus = (string)($requestEntity->status ?? '');
         if ((int)$requestEntity->approvals_needed === 0) {
             $this->loadModel('Users');
             $requestEntity->approvals_needed = $this->Users->find()
@@ -1709,6 +1714,10 @@ class RequestsController extends AppController
 
         if ($this->Requests->save($requestEntity)) {
             $this->Flash->success('Approval recorded.');
+            $currentStatus = (string)($requestEntity->status ?? '');
+            if ($currentStatus !== $previousStatus) {
+                $this->notifyAdminsStatus((int)$requestEntity->id, $currentStatus, $previousStatus);
+            }
         } else {
             $this->Flash->error('Failed to update request status.');
         }
@@ -1732,6 +1741,7 @@ class RequestsController extends AppController
         }
 
         $requestEntity = $this->Requests->get($id);
+        $previousStatus = (string)($requestEntity->status ?? '');
         $this->loadModel('Users');
         $this->loadModel('RequestApprovals');
         $adminId = (int)$this->Auth->user('id');
@@ -1779,6 +1789,10 @@ class RequestsController extends AppController
 
         if ($this->Requests->save($requestEntity)) {
             $this->Flash->success('Request sent for review.');
+            $currentStatus = (string)($requestEntity->status ?? '');
+            if ($currentStatus !== $previousStatus) {
+                $this->notifyAdminsStatus((int)$requestEntity->id, $currentStatus, $previousStatus);
+            }
         } else {
             $this->Flash->error('Failed to send request for review.');
         }
@@ -1931,10 +1945,13 @@ class RequestsController extends AppController
         return $this->redirect(['action' => 'pending']);
     }
 
-    private function notifyAdmins(int $requestId): void
+    private function notifyAdmins(int $requestId, string $title = '', string $requester = ''): void
     {
         $this->loadModel('Users');
         $this->loadModel('Notifications');
+        $schema = $this->Notifications->getSchema();
+        $hasCreated = $schema->hasColumn('created');
+        $refField = $schema->hasColumn('ref_id') ? 'ref_id' : ($schema->hasColumn('ref_request_id') ? 'ref_request_id' : null);
 
         $adminUsers = $this->Users->find()
             ->where(['role IN' => ['Administrator', 'Approver']])
@@ -1946,16 +1963,97 @@ class RequestsController extends AppController
         }
 
         $now = FrozenTime::now();
+        $title = trim($title);
+        $requester = trim($requester);
+        $message = 'New request pending approval.';
+        if ($title !== '') {
+            $message = 'New request: ' . $title . ' (pending approval).';
+        }
+        if ($requester !== '') {
+            $message .= ' Submitted by ' . $requester . '.';
+        }
         $notifications = [];
 
         foreach ($adminUsers as $admin) {
             $notification = $this->Notifications->newEmptyEntity();
             $notification->recipient_user_id = $admin->id;
             $notification->type = 'request_submitted';
-            $notification->message = 'New request pending approval.';
-            $notification->ref_id = $requestId;
+            $notification->message = $message;
+            if ($refField !== null) {
+                $notification->{$refField} = $requestId;
+            }
             $notification->is_read = false;
-            $notification->created = $now;
+            if ($hasCreated) {
+                $notification->created = $now;
+            } elseif ($schema->hasColumn('created_at')) {
+                $notification->created_at = $now;
+            }
+            $notifications[] = $notification;
+        }
+
+        $this->Notifications->saveMany($notifications);
+    }
+
+    private function notifyAdminsStatus(int $requestId, string $status, string $previousStatus = ''): void
+    {
+        $this->loadModel('Users');
+        $this->loadModel('Notifications');
+        $this->loadModel('Requests');
+        $schema = $this->Notifications->getSchema();
+        $hasCreated = $schema->hasColumn('created');
+        $refField = $schema->hasColumn('ref_id') ? 'ref_id' : ($schema->hasColumn('ref_request_id') ? 'ref_request_id' : null);
+
+        $adminUsers = $this->Users->find()
+            ->where(['role IN' => ['Administrator', 'Approver']])
+            ->orderAsc('id')
+            ->all();
+
+        if ($adminUsers->isEmpty()) {
+            return;
+        }
+
+        $normalized = strtolower(trim($status));
+        $label = $normalized !== '' ? ucfirst($normalized) : 'Updated';
+        $requestTitle = '';
+        try {
+            $request = $this->Requests->find()
+                ->select(['title', 'subject'])
+                ->where(['id' => $requestId])
+                ->first();
+            if ($request) {
+                $requestTitle = trim((string)($request->title ?? $request->subject ?? ''));
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        $message = $requestTitle !== ''
+            ? ('Request "' . $requestTitle . '" status changed to ' . $label . '.')
+            : ('Request status changed to ' . $label . '.');
+        if ($previousStatus !== '' && $previousStatus !== $status) {
+            $prevLabel = ucfirst(strtolower(trim($previousStatus)));
+            $message = $requestTitle !== ''
+                ? ('Request "' . $requestTitle . '" status changed from ' . $prevLabel . ' to ' . $label . '.')
+                : ('Request status changed from ' . $prevLabel . ' to ' . $label . '.');
+        }
+
+        $now = FrozenTime::now();
+        $notifications = [];
+
+        foreach ($adminUsers as $admin) {
+            $notification = $this->Notifications->newEmptyEntity();
+            $notification->recipient_user_id = $admin->id;
+            $notification->type = 'request_status';
+            $notification->message = $message;
+            if ($refField !== null) {
+                $notification->{$refField} = $requestId;
+            }
+            $notification->is_read = false;
+            if ($hasCreated) {
+                $notification->created = $now;
+            } elseif ($schema->hasColumn('created_at')) {
+                $notification->created_at = $now;
+            }
             $notifications[] = $notification;
         }
 

@@ -14,7 +14,7 @@
  * @var \App\View\AppView $this
  */
 
-$cakeDescription = 'PROJECT OARAS';
+$cakeDescription = 'Project OARAS';
 ?>
 <!DOCTYPE html>
 <html>
@@ -237,6 +237,97 @@ $cakeDescription = 'PROJECT OARAS';
         .main-header.navbar .navbar-nav .nav-link {
             color: #ffffff;
         }
+        .main-header.navbar .navbar-nav .nav-item {
+            display: flex;
+            align-items: center;
+        }
+        .main-header.navbar .navbar-nav .nav-item .btn {
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+        .notification-bell .nav-link {
+            position: relative;
+        }
+        .notification-bell .navbar-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        .notification-dropdown {
+            width: 320px;
+            max-width: 90vw;
+        }
+        .notification-list {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .notification-item {
+            white-space: normal;
+            line-height: 1.2;
+        }
+        .notification-item.unread {
+            background: rgba(59, 130, 246, 0.08);
+        }
+        .notification-time {
+            display: block;
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        body.night-mode {
+            background: #0b1220;
+            color: #e2e8f0;
+        }
+        body.night-mode .content-wrapper {
+            background: #0f172a;
+        }
+        body.night-mode .main-header.navbar,
+        body.night-mode .main-footer {
+            background: linear-gradient(90deg, #0f172a 0%, #0f172a 50%, #1f2937 50%, #1f2937 100%);
+        }
+        body.night-mode .main-header.navbar::before {
+            background: #1e293b;
+        }
+        body.night-mode .card {
+            background: #111827;
+            color: #e5e7eb;
+            border-color: rgba(148, 163, 184, 0.2);
+        }
+        body.night-mode .table {
+            color: #e5e7eb;
+        }
+        body.night-mode .table th,
+        body.night-mode .table td {
+            border-color: rgba(148, 163, 184, 0.2);
+        }
+        body.night-mode .form-control {
+            background: #0f172a;
+            color: #e5e7eb;
+            border-color: rgba(148, 163, 184, 0.3);
+        }
+        body.night-mode .form-control::placeholder {
+            color: #94a3b8;
+        }
+        body.night-mode .dropdown-menu {
+            background: #0f172a;
+            color: #e5e7eb;
+            border-color: rgba(148, 163, 184, 0.2);
+        }
+        body.night-mode .dropdown-item {
+            color: #e5e7eb;
+        }
+        body.night-mode .dropdown-item:hover {
+            background: rgba(148, 163, 184, 0.15);
+        }
+        body.night-mode .main-sidebar {
+            background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+        }
+        body.night-mode .main-sidebar .nav-sidebar .nav-link:hover {
+            background: rgba(148, 163, 184, 0.15);
+        }
+        body.night-mode .main-sidebar .nav-sidebar .nav-link.active {
+            background: rgba(148, 163, 184, 0.2);
+            box-shadow: none;
+        }
         .btn {
             border-radius: 0.6rem;
             font-weight: 600;
@@ -317,6 +408,33 @@ $cakeDescription = 'PROJECT OARAS';
 
         <!-- Right navbar links -->
         <ul class="navbar-nav ml-auto">
+            <?php
+                $role = (string)($auth['role'] ?? '');
+                $showNotifications = in_array($role, ['Superuser', 'Administrator', 'Approver'], true);
+            ?>
+            <li class="nav-item">
+                <button type="button" class="btn btn-sm btn-outline-light ml-2 mr-2" id="night-mode-toggle">
+                    <i class="fas fa-moon"></i>
+                    Night Mode
+                </button>
+            </li>
+            <?php if ($showNotifications): ?>
+            <li class="nav-item dropdown notification-bell" id="notification-bell">
+                <a class="nav-link" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">
+                    <i class="far fa-bell"></i>
+                    <span class="badge badge-danger navbar-badge" id="notification-count" style="display:none;">0</span>
+                </a>
+                <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right notification-dropdown">
+                    <span class="dropdown-item dropdown-header" id="notification-header">Notifications</span>
+                    <div class="dropdown-divider"></div>
+                    <div id="notification-list" class="notification-list">
+                        <div class="dropdown-item text-muted small">No notifications yet.</div>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <a href="#" class="dropdown-item dropdown-footer" id="notification-mark-read">Mark all as read</a>
+                </div>
+            </li>
+            <?php endif; ?>
             <li class="nav-item">
                 <a class="nav-link" href="<?= $this->Url->build('/Users/logout') ?>">
                     <i class="fas fa-sign-out-alt"></i>
@@ -543,8 +661,196 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('input, textarea, select').forEach(function (field) {
         field.setAttribute('autocomplete', 'off');
     });
+
+    var nightToggle = document.getElementById('night-mode-toggle');
+    var storageKey = 'night_mode_enabled';
+    function applyNightMode(enabled) {
+        document.body.classList.toggle('night-mode', enabled);
+        if (nightToggle) {
+            nightToggle.classList.toggle('btn-outline-light', !enabled);
+            nightToggle.classList.toggle('btn-outline-warning', enabled);
+        }
+    }
+    var saved = localStorage.getItem(storageKey);
+    if (saved === '1') {
+        applyNightMode(true);
+    }
+    if (nightToggle) {
+        nightToggle.addEventListener('click', function () {
+            var enabled = !document.body.classList.contains('night-mode');
+            applyNightMode(enabled);
+            localStorage.setItem(storageKey, enabled ? '1' : '0');
+        });
+    }
 });
 </script>
+
+<?php if (!empty($showNotifications)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var fetchUrl = <?= json_encode($this->Url->build(['controller' => 'Notifications', 'action' => 'fetch'])) ?>;
+    var markReadUrl = <?= json_encode($this->Url->build(['controller' => 'Notifications', 'action' => 'markRead'])) ?>;
+    var countEl = document.getElementById('notification-count');
+    var listEl = document.getElementById('notification-list');
+    var headerEl = document.getElementById('notification-header');
+    var markReadEl = document.getElementById('notification-mark-read');
+    var lastCount = 0;
+    var audioCtx = null;
+
+    function getCsrfToken() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && meta.content) {
+            return meta.content;
+        }
+        return '';
+    }
+
+    function ensureAudioContext() {
+        if (!window.AudioContext && !window.webkitAudioContext) {
+            return null;
+        }
+        if (!audioCtx) {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new Ctx();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        return audioCtx;
+    }
+
+    function playNotificationSound() {
+        var ctx = ensureAudioContext();
+        if (!ctx) {
+            return;
+        }
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.value = 0.08;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
+        osc.stop(ctx.currentTime + 0.25);
+    }
+
+    function renderList(items, unreadCount) {
+        if (!listEl) {
+            return;
+        }
+        if (!items || !items.length) {
+            listEl.innerHTML = '<div class="dropdown-item text-muted small">No notifications yet.</div>';
+            return;
+        }
+        var html = '';
+        items.forEach(function (item) {
+            var isUnread = !item.is_read;
+            var classes = 'dropdown-item notification-item' + (isUnread ? ' unread' : '');
+            var linkStart = '<div class="' + classes + '">';
+            var linkEnd = '</div>';
+            if (item.ref_id) {
+                var url = <?= json_encode($this->Url->build('/requests/view/')) ?> + String(item.ref_id);
+                linkStart = '<a class="' + classes + '" href="' + url + '">';
+                linkEnd = '</a>';
+            }
+            html += linkStart +
+                '<div>' + String(item.message || '') + '</div>' +
+                (item.created ? '<span class="notification-time">' + String(item.created) + '</span>' : '') +
+                linkEnd;
+        });
+        listEl.innerHTML = html;
+        if (headerEl) {
+            headerEl.textContent = unreadCount > 0 ? ('Notifications (' + unreadCount + ' new)') : 'Notifications';
+        }
+    }
+
+    function updateCount(count) {
+        if (!countEl) {
+            return;
+        }
+        if (count > 0) {
+            countEl.textContent = String(count);
+            countEl.style.display = 'inline-block';
+        } else {
+            countEl.style.display = 'none';
+        }
+    }
+
+    function fetchNotifications(silent) {
+        fetch(fetchUrl, {
+            credentials: 'include',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function (resp) {
+                if (!resp.ok) {
+                    return null;
+                }
+                return resp.json();
+            })
+            .then(function (data) {
+                if (!data) {
+                    return;
+                }
+                var count = Number(data.unread_count || 0);
+                updateCount(count);
+                renderList(data.items || [], count);
+                if (!silent && count > lastCount) {
+                    playNotificationSound();
+                }
+                lastCount = count;
+            })
+            .catch(function () {
+                // ignore fetch errors
+            });
+    }
+
+    function markAllRead() {
+        var csrfToken = getCsrfToken();
+        fetch(markReadUrl, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-Token': csrfToken || ''
+            }
+        })
+            .then(function () {
+                updateCount(0);
+                lastCount = 0;
+                fetchNotifications(true);
+            })
+            .catch(function () {
+                // ignore
+            });
+    }
+
+    if (markReadEl) {
+        markReadEl.addEventListener('click', function (e) {
+            e.preventDefault();
+            markAllRead();
+        });
+    }
+
+    var bell = document.getElementById('notification-bell');
+    if (bell && window.jQuery) {
+        $(bell).on('show.bs.dropdown', function () {
+            fetchNotifications(true);
+        });
+    }
+
+    document.addEventListener('click', function () {
+        ensureAudioContext();
+    }, { once: true });
+
+    fetchNotifications(true);
+    setInterval(function () {
+        fetchNotifications(false);
+    }, 15000);
+});
+</script>
+<?php endif; ?>
 
 <div class="modal fade" id="dashboard-modal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-xl" role="document">
