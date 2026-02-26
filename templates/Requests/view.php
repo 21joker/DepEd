@@ -15,6 +15,17 @@ $admins = $admins ?? [];
 $approvalStatuses = $approvalStatuses ?? [];
 $statusOnly = $statusOnly ?? false;
 $remarksList = $remarksList ?? [];
+        $totalApprovers = is_countable($admins) ? count($admins) : 0;
+        $approvedCount = 0;
+        if ($totalApprovers > 0) {
+            foreach ($admins as $admin) {
+                $status = $approvalStatuses[$admin->id] ?? null;
+                if ($status === 'approved') {
+                    $approvedCount++;
+                }
+            }
+        }
+        $progressPercent = $totalApprovers > 0 ? (int)round(($approvedCount / $totalApprovers) * 100) : 0;
 
 $detailsSource = $requestEntity->details;
 if ($detailsSource === null || trim((string)$detailsSource) === '') {
@@ -353,6 +364,13 @@ function _approval_label(?string $status): string
           <h3 class="card-title">Approvals</h3>
         </div>
         <div class="card-body">
+          <div class="text-center font-weight-bold mb-2"><?= $progressPercent ?>%</div>
+          <div class="progress mb-3" style="height: 12px;">
+            <div class="progress-bar bg-success" role="progressbar"
+                 style="width: <?= $progressPercent ?>%;"
+                 aria-valuenow="<?= $progressPercent ?>" aria-valuemin="0" aria-valuemax="100">
+            </div>
+          </div>
           <?php if (empty($admins)): ?>
             <p class="text-muted mb-0">No approvers found.</p>
           <?php else: ?>

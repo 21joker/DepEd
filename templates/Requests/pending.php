@@ -176,18 +176,31 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
       <?php
         $exportMode = (string)($this->request->getQuery('export_mode') ?? 'month');
         $exportDate = (string)($this->request->getQuery('export_date') ?? '');
+        $divisionFilter = (string)($this->request->getQuery('division') ?? '');
         if ($exportMode === '') {
             $exportMode = 'month';
         }
       ?>
       <div class="d-flex align-items-center">
         <div class="d-flex align-items-center mr-3">
+          <select id="division-filter" class="form-control form-control-sm mr-2" style="width: 190px;">
+            <option value="" <?= $divisionFilter === '' ? 'selected' : '' ?>>All Functional Divisions </option>
+            <option value="CID" <?= $divisionFilter === 'CID' ? 'selected' : '' ?>>CID</option>
+            <option value="OSDS" <?= $divisionFilter === 'OSDS' ? 'selected' : '' ?>>OSDS</option>
+            <option value="SGOD" <?= $divisionFilter === 'SGOD' ? 'selected' : '' ?>>SGOD</option>
+          </select>
           <select id="export-mode" class="form-control form-control-sm mr-2" style="width: 110px;">
             <option value="day" <?= $exportMode === 'day' ? 'selected' : '' ?>>Day</option>
             <option value="month" <?= $exportMode === 'month' ? 'selected' : '' ?>>Month</option>
             <option value="year" <?= $exportMode === 'year' ? 'selected' : '' ?>>Year</option>
           </select>
           <input id="export-date" class="form-control form-control-sm" value="<?= h($exportDate) ?>" style="width: 160px;" placeholder="Select date">
+        </div>
+        <?php $filteredCount = is_countable($requests) ? count($requests) : 0; ?>
+        <div class="border rounded bg-light d-flex align-items-center px-2 mr-3"
+             style="height: 32px; min-width: 150px;">
+          <span class="small text-muted mr-2">Count of Activities</span>
+          <span class="font-weight-bold"><?= $filteredCount ?></span>
         </div>
         <a class="btn btn-danger btn-sm mr-2" target="_blank" rel="noopener"
            href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'exportAllPdf'], ['fullBase' => true]) ?>"
@@ -450,6 +463,7 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
     var dateInput = document.getElementById('export-date');
     var pdfBtn = document.getElementById('export-pdf-btn');
     var excelBtn = document.getElementById('export-excel-btn');
+    var divisionSelect = document.getElementById('division-filter');
 
     function updateInputType() {
       var mode = modeSelect.value;
@@ -471,11 +485,32 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
       var url = new URL(baseHref, window.location.origin);
       var mode = modeSelect.value || 'month';
       var date = dateInput.value || '';
+      var division = divisionSelect ? divisionSelect.value : '';
       if (mode) {
         url.searchParams.set('export_mode', mode);
       }
       if (date) {
         url.searchParams.set('export_date', date);
+      }
+      if (division) {
+        url.searchParams.set('division', division);
+      }
+      return url.toString();
+    }
+
+    function buildPageUrl() {
+      var url = new URL(window.location.pathname, window.location.origin);
+      var mode = modeSelect.value || 'month';
+      var date = dateInput.value || '';
+      var division = divisionSelect ? divisionSelect.value : '';
+      if (mode) {
+        url.searchParams.set('export_mode', mode);
+      }
+      if (date) {
+        url.searchParams.set('export_date', date);
+      }
+      if (division) {
+        url.searchParams.set('division', division);
       }
       return url.toString();
     }
@@ -495,6 +530,12 @@ $hasRequests = is_countable($requests) ? count($requests) > 0 : !empty($requests
     });
     dateInput.addEventListener('change', updateLinks);
     dateInput.addEventListener('keyup', updateLinks);
+    if (divisionSelect) {
+      divisionSelect.addEventListener('change', function () {
+        updateLinks();
+        window.location.href = buildPageUrl();
+      });
+    }
   })();
 </script>
 

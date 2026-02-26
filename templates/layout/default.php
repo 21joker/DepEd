@@ -690,6 +690,9 @@ document.addEventListener('DOMContentLoaded', function () {
 document.addEventListener('DOMContentLoaded', function () {
     var fetchUrl = <?= json_encode($this->Url->build(['controller' => 'Notifications', 'action' => 'fetch'])) ?>;
     var markReadUrl = <?= json_encode($this->Url->build(['controller' => 'Notifications', 'action' => 'markRead'])) ?>;
+    var markOneBaseUrl = <?= json_encode($this->Url->build(['controller' => 'Notifications', 'action' => 'markOne'])) ?>;
+    var viewBaseUrl = <?= json_encode($this->Url->build(['controller' => 'Requests', 'action' => 'view'])) ?>;
+    var webroot = <?= json_encode($this->request->getAttribute('webroot')) ?> || '/';
     var countEl = document.getElementById('notification-count');
     var listEl = document.getElementById('notification-list');
     var headerEl = document.getElementById('notification-header');
@@ -724,16 +727,20 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!ctx) {
             return;
         }
-        var osc = ctx.createOscillator();
-        var gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = 880;
-        gain.gain.value = 0.08;
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
-        osc.stop(ctx.currentTime + 0.25);
+        var now = ctx.currentTime;
+        for (var i = 0; i < 3; i++) {
+            var start = now + (i * 0.22);
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            gain.gain.value = 0.2;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(start);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.15);
+            osc.stop(start + 0.15);
+        }
     }
 
     function renderList(items, unreadCount) {
@@ -748,22 +755,57 @@ document.addEventListener('DOMContentLoaded', function () {
         items.forEach(function (item) {
             var isUnread = !item.is_read;
             var classes = 'dropdown-item notification-item' + (isUnread ? ' unread' : '');
-            var linkStart = '<div class="' + classes + '">';
+            var idAttr = ' data-notification-id="' + String(item.id || '') + '"';
+            var hrefAttr = '';
+            var linkStart = '<div class="' + classes + '"' + idAttr + hrefAttr + '>';
             var linkEnd = '</div>';
-            if (item.ref_id) {
-                var url = <?= json_encode($this->Url->build('/requests/view/')) ?> + String(item.ref_id);
-                linkStart = '<a class="' + classes + '" href="' + url + '">';
-                linkEnd = '</a>';
-            }
             html += linkStart +
                 '<div>' + String(item.message || '') + '</div>' +
                 (item.created ? '<span class="notification-time">' + String(item.created) + '</span>' : '') +
                 linkEnd;
         });
         listEl.innerHTML = html;
-        if (headerEl) {
-            headerEl.textContent = unreadCount > 0 ? ('Notifications (' + unreadCount + ' new)') : 'Notifications';
+        updateHeaderFromCount(unreadCount);
+    }
+
+    function updateHeaderFromCount(count) {
+        if (!headerEl) {
+            return;
         }
+        headerEl.textContent = count > 0 ? ('Notifications (' + count + ' new)') : 'Notifications';
+    }
+
+    function getUnreadCount() {
+        if (!countEl || countEl.style.display === 'none') {
+            return 0;
+        }
+        var value = Number(countEl.textContent || 0);
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    function markOneRead(notificationId) {
+        var csrfToken = getCsrfToken();
+        if (!notificationId) {
+            return Promise.resolve();
+        }
+        var base = String(markOneBaseUrl || '');
+        if (base.charAt(base.length - 1) !== '/') {
+            base += '/';
+        }
+        var url = base + String(notificationId);
+        return fetch(url, {
+            method: 'POST',
+            credentials: 'include',
+            keepalive: true,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-Token': csrfToken || ''
+            }
+        }).then(function () {
+            return null;
+        }).catch(function () {
+            return null;
+        });
     }
 
     function updateCount(count) {
@@ -776,12 +818,17 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             countEl.style.display = 'none';
         }
+        updateHeaderFromCount(count);
     }
 
     function fetchNotifications(silent) {
+        var csrfToken = getCsrfToken();
         fetch(fetchUrl, {
             credentials: 'include',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-Token': csrfToken || ''
+            }
         })
             .then(function (resp) {
                 if (!resp.ok) {
@@ -832,6 +879,28 @@ document.addEventListener('DOMContentLoaded', function () {
             markAllRead();
         });
     }
+
+    document.addEventListener('click', function (e) {
+        var target = e.target;
+        if (!target || !target.closest) {
+            return;
+        }
+        var itemEl = target.closest('.notification-item');
+        if (!itemEl) {
+            return;
+        }
+        var notificationId = itemEl.getAttribute('data-notification-id');
+        if (!notificationId) {
+            return;
+        }
+        if (itemEl.classList.contains('unread')) {
+            itemEl.classList.remove('unread');
+            var currentCount = getUnreadCount();
+            var nextCount = Math.max(0, currentCount - 1);
+            updateCount(nextCount);
+        }
+        markOneRead(notificationId);
+    });
 
     var bell = document.getElementById('notification-bell');
     if (bell && window.jQuery) {

@@ -966,19 +966,22 @@ class RequestsController extends AppController
         $adminId = (int)$this->Auth->user('id');
         $hiddenRequestIds = $this->getHiddenRequestIds($adminId);
         $counts = $this->buildCounts($adminId, $hiddenRequestIds);
+        $division = (string)$this->request->getQuery('division');
 
-        $requests = $this->Requests->find()
+        $requestsQuery = $this->Requests->find()
             ->where(['status !=' => 'deleted'])
             ->orderDesc('created_at')
-            ->orderDesc('id')
-            ->all();
+            ->orderDesc('id');
+        $requests = $requestsQuery->all();
+        $requests = $this->filterRequestsByDivision($requests, $division);
         if (!empty($hiddenRequestIds)) {
-            $requests = $this->Requests->find()
+            $requestsQuery = $this->Requests->find()
                 ->where(['status !=' => 'deleted'])
                 ->where(['id NOT IN' => $hiddenRequestIds])
                 ->orderDesc('created_at')
-                ->orderDesc('id')
-                ->all();
+                ->orderDesc('id');
+            $requests = $requestsQuery->all();
+            $requests = $this->filterRequestsByDivision($requests, $division);
         }
 
         $emails = [];
@@ -1104,7 +1107,7 @@ class RequestsController extends AppController
         }
         $totalSubmitted = is_countable($requests) ? count($requests) : 0;
         unset($counts['deleted']);
-        $this->set(compact('requests', 'counts', 'pageTitle', 'headerBadge', 'viewType', 'inModal', 'adminApprovalStatus', 'adminApprovalMeta', 'requestSummaries', 'totalSubmitted'));
+        $this->set(compact('requests', 'counts', 'pageTitle', 'headerBadge', 'viewType', 'inModal', 'adminApprovalStatus', 'adminApprovalMeta', 'requestSummaries', 'totalSubmitted', 'division'));
       }
 
     public function approved()
@@ -1525,11 +1528,36 @@ class RequestsController extends AppController
         $adminId = (int)$this->Auth->user('id');
         $exportMode = (string)$this->request->getQuery('export_mode');
         $exportDate = (string)$this->request->getQuery('export_date');
-        [$requests, $requestSummaries, $adminApprovalStatus] = $this->getPendingListData($adminId, $exportMode, $exportDate);
+        $division = (string)$this->request->getQuery('division');
+        [$requests, $requestSummaries, $adminApprovalStatus] = $this->getPendingListData($adminId, $exportMode, $exportDate, $division);
 
         $this->viewBuilder()->setLayout('ajax');
-        $pageTitle = 'All Requests';
-        $this->set(compact('requests', 'requestSummaries', 'adminApprovalStatus', 'pageTitle'));
+        $normalizedMode = strtolower($exportMode);
+        $summaryTitle = 'Summary Activities';
+        if ($normalizedMode === 'day') {
+            $day = \DateTime::createFromFormat('Y-m-d', $exportDate);
+            if ($day instanceof \DateTime) {
+                $summaryTitle = 'Summary ' . $day->format('F j, Y') . ' Activities';
+            } else {
+                $summaryTitle = 'Summary Day Activities';
+            }
+        } elseif ($normalizedMode === 'month') {
+            $month = \DateTime::createFromFormat('Y-m', $exportDate);
+            if ($month instanceof \DateTime) {
+                $summaryTitle = 'Summary ' . $month->format('F Y') . ' Activities';
+            } else {
+                $summaryTitle = 'Summary Month Activities';
+            }
+        } elseif ($normalizedMode === 'year') {
+            $year = preg_replace('/[^0-9]/', '', $exportDate);
+            if ($year !== '' && strlen($year) === 4) {
+                $summaryTitle = 'Summary ' . $year . ' Activities';
+            } else {
+                $summaryTitle = 'Summary Year Activities';
+            }
+        }
+        $pageTitle = $summaryTitle;
+        $this->set(compact('requests', 'requestSummaries', 'adminApprovalStatus', 'pageTitle', 'summaryTitle'));
         $this->render('export_all_pdf');
     }
 
@@ -1543,7 +1571,8 @@ class RequestsController extends AppController
         $adminId = (int)$this->Auth->user('id');
         $exportMode = (string)$this->request->getQuery('export_mode');
         $exportDate = (string)$this->request->getQuery('export_date');
-        [$requests, $requestSummaries, $adminApprovalStatus] = $this->getPendingListData($adminId, $exportMode, $exportDate);
+        $division = (string)$this->request->getQuery('division');
+        [$requests, $requestSummaries, $adminApprovalStatus] = $this->getPendingListData($adminId, $exportMode, $exportDate, $division);
 
         $filename = 'requests_' . date('Ymd_His') . '.csv';
         $handle = fopen('php://temp', 'r+');
@@ -1951,7 +1980,14 @@ class RequestsController extends AppController
         $this->loadModel('Notifications');
         $schema = $this->Notifications->getSchema();
         $hasCreated = $schema->hasColumn('created');
-        $refField = $schema->hasColumn('ref_id') ? 'ref_id' : ($schema->hasColumn('ref_request_id') ? 'ref_request_id' : null);
+        $refField = null;
+        if ($schema->hasColumn('ref_id')) {
+            $refField = 'ref_id';
+        } elseif ($schema->hasColumn('ref_request_id')) {
+            $refField = 'ref_request_id';
+        } elseif ($schema->hasColumn('request_id')) {
+            $refField = 'request_id';
+        }
 
         $adminUsers = $this->Users->find()
             ->where(['role IN' => ['Administrator', 'Approver']])
@@ -2001,7 +2037,14 @@ class RequestsController extends AppController
         $this->loadModel('Requests');
         $schema = $this->Notifications->getSchema();
         $hasCreated = $schema->hasColumn('created');
-        $refField = $schema->hasColumn('ref_id') ? 'ref_id' : ($schema->hasColumn('ref_request_id') ? 'ref_request_id' : null);
+        $refField = null;
+        if ($schema->hasColumn('ref_id')) {
+            $refField = 'ref_id';
+        } elseif ($schema->hasColumn('ref_request_id')) {
+            $refField = 'ref_request_id';
+        } elseif ($schema->hasColumn('request_id')) {
+            $refField = 'request_id';
+        }
 
         $adminUsers = $this->Users->find()
             ->where(['role IN' => ['Administrator', 'Approver']])
@@ -2334,7 +2377,7 @@ class RequestsController extends AppController
         }
     }
 
-    private function getPendingListData(int $adminId, string $exportMode = '', string $exportDate = ''): array
+    private function getPendingListData(int $adminId, string $exportMode = '', string $exportDate = '', string $division = ''): array
     {
         $hiddenRequestIds = $this->getHiddenRequestIds($adminId);
         $query = $this->Requests->find()
@@ -2343,6 +2386,7 @@ class RequestsController extends AppController
             ->orderDesc('id');
         $this->applyExportDateFilter($query, $exportMode, $exportDate);
         $requests = $query->all();
+        $requests = $this->filterRequestsByDivision($requests, $division);
         if (!empty($hiddenRequestIds)) {
             $query = $this->Requests->find()
                 ->where(['status !=' => 'deleted'])
@@ -2351,6 +2395,7 @@ class RequestsController extends AppController
                 ->orderDesc('id');
             $this->applyExportDateFilter($query, $exportMode, $exportDate);
             $requests = $query->all();
+            $requests = $this->filterRequestsByDivision($requests, $division);
         }
 
         $emails = [];
@@ -2483,6 +2528,39 @@ class RequestsController extends AppController
         $query->where(function ($exp) use ($start, $end) {
             return $exp->between('created_at', $start, $end);
         });
+    }
+
+    private function filterRequestsByDivision($requests, string $division): array
+    {
+        $division = strtoupper(trim($division));
+        if ($division === '') {
+            return is_array($requests) ? $requests : $requests->toArray();
+        }
+        $allowed = ['CID', 'OSDS', 'SGOD'];
+        if (!in_array($division, $allowed, true)) {
+            return is_array($requests) ? $requests : $requests->toArray();
+        }
+
+        $filtered = [];
+        foreach ($requests as $request) {
+            $detailsSource = $request->details;
+            if ($detailsSource === null || trim((string)$detailsSource) === '') {
+                $detailsSource = $request->message ?? '';
+            }
+            $fields = $this->extractFieldsFromDetails((string)$detailsSource);
+            $office = strtoupper(trim((string)($fields['PMIS Activity Office'] ?? '')));
+            if ($office === '') {
+                $codeLine = (string)($fields['PMIS Activity Code'] ?? '');
+                if ($codeLine !== '' && preg_match('/PMIS\\s*Activity\\s*Office\\s*:\\s*(CID|OSDS|SGOD)/i', $codeLine, $matches)) {
+                    $office = strtoupper($matches[1]);
+                }
+            }
+            if ($office === $division) {
+                $filtered[] = $request;
+            }
+        }
+
+        return $filtered;
     }
 
     private function ensureAdmin()

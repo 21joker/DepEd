@@ -75,11 +75,28 @@ $pageTitle = $pageTitle ?? 'All Requests';
   .print-header .small {
     font-size: 10px;
   }
+  .print-header .activity-count {
+    width: 100%;
+    text-align: right;
+    font-size: 10px;
+    margin-top: 4px;
+  }
   .print-header .divider {
     border: 0;
     border-top: 2px solid #111;
     margin: 8px auto 0;
     width: 92%;
+  }
+  .print-header .summary-title {
+    margin-top: 6px;
+    font-size: 25px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+  .print-header .underline {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .print-footer {
     display: block;
@@ -158,7 +175,19 @@ $pageTitle = $pageTitle ?? 'All Requests';
 </style>
 
 <div class="toolbar">
+  <?php
+    $activityCount = is_countable($requests) ? count($requests) : 0;
+    $summaryTitleText = (string)($summaryTitle ?? 'Summary of Activities');
+    $summaryPrefix = 'Summary ';
+    $summarySuffix = ' Activities';
+    $summaryMiddle = '';
+    if (stripos($summaryTitleText, $summaryPrefix) === 0
+        && stripos($summaryTitleText, $summarySuffix) === (strlen($summaryTitleText) - strlen($summarySuffix))) {
+        $summaryMiddle = trim(substr($summaryTitleText, strlen($summaryPrefix), -strlen($summarySuffix)));
+    }
+  ?>
   <h1><?= h($pageTitle) ?></h1>
+  <div class="text-muted small">Count of Activities: <?= $activityCount ?></div>
   <button class="btn" type="button" onclick="window.print()">Print / Save as PDF</button>
 </div>
 
@@ -175,6 +204,14 @@ $pageTitle = $pageTitle ?? 'All Requests';
     <div class="small">Region II - Cagayan Valley</div>
     <div class="sub">SCHOOLS DIVISION OF SANTIAGO CITY</div>
     <hr class="divider">
+    <div class="summary-title">
+      <?php if ($summaryMiddle !== ''): ?>
+        Summary <span class="underline"><?= h($summaryMiddle) ?></span> Activities
+      <?php else: ?>
+        <?= h($summaryTitleText) ?>
+      <?php endif; ?>
+    </div>
+    <div class="activity-count">Count of Activities: <span class="underline"><?= $activityCount ?></span></div>
   </div>
   <table>
     <thead>

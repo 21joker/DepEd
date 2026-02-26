@@ -53,6 +53,9 @@
     font-size: 14px;
     line-height: 1.4;
 }
+.proposal-table input.pmis-code {
+    font-weight: 700;
+}
 .proposal-table textarea.form-control {
     resize: vertical;
 }
@@ -352,6 +355,7 @@
                             <th>AR</th>
                             <th>ATC</th>
                             <th>List of Participants</th>
+                            <th>Progress</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -442,6 +446,11 @@
                                     $statusClass = 'secondary';
                                 }
                                 $requestId = (int)$request->id;
+                                $approvalsNeeded = (int)($request->approvals_needed ?? 0);
+                                $approvalsCount = (int)($request->approvals_count ?? 0);
+                                $progressPercent = $approvalsNeeded > 0
+                                    ? (int)round(min(100, ($approvalsCount / $approvalsNeeded) * 100))
+                                    : 0;
                                 $buildFileLink = function (string $filename) use ($requestId) {
                                     $safeName = basename($filename);
                                     if ($safeName === '') {
@@ -510,6 +519,15 @@
                                       <?php endif; ?>
                                   </td>
                                   <td>
+                                      <div class="text-center small font-weight-bold mb-1"><?= $progressPercent ?>%</div>
+                                      <div class="progress" style="height: 8px;">
+                                          <div class="progress-bar bg-success" role="progressbar"
+                                               style="width: <?= $progressPercent ?>%;"
+                                               aria-valuenow="<?= $progressPercent ?>" aria-valuemin="0" aria-valuemax="100">
+                                          </div>
+                                      </div>
+                                  </td>
+                                  <td>
                                       <span class="badge badge-<?= h($statusClass) ?> status-badge">
                                           <?= h($statusLabel) ?>
                                       </span>
@@ -570,14 +588,14 @@
                 $venueOptions = [
                     '' => 'Modality',
                     'ONLINE' => 'ONLINE',
-                    'InPerson' => 'InPerson',
+                    'In-Person' => 'In-Person',
                     'Hybrid' => 'Hybrid',
                 ];
                 $venueValue = trim((string)($requestEntity->venue_modality ?? ''));
                 $venueChoice = '';
                 $venueDetails = '';
                 if ($venueValue !== '') {
-                    foreach (['ONLINE', 'InPerson', 'Hybrid'] as $option) {
+                    foreach (['ONLINE', 'In-Person', 'Hybrid'] as $option) {
                         if (stripos($venueValue, $option) === 0) {
                             $venueChoice = $option;
                             $venueDetails = trim((string)preg_replace('/^' . preg_quote($option, '/') . '\\s*[-:]?\\s*/i', '', $venueValue));
@@ -640,7 +658,7 @@
                     <tr>
                         <td class="label">PMIS Activity Code (AC):</td>
                         <td><?= $this->Form->text('pmis_activity_code', [
-                            'class' => 'form-control',
+                            'class' => 'form-control pmis-code',
                             'id' => 'pmis-activity-code',
                             'data-prefix' => 'AC-',
                             'value' => !empty($requestEntity->pmis_activity_code) ? $requestEntity->pmis_activity_code : 'AC-',
@@ -879,8 +897,18 @@
                     <tr>
                         <th class="section" colspan="2">Part II. Financial Details</th>
                     </tr>
+                    <tr>
+                        <td class="label">Availability of funds:</td>
+                        <td>
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="availability-of-funds" checked>
+                                <label class="custom-control-label" for="availability-of-funds">On</label>
+                            </div>
+                            <small class="text-muted d-block">Turn off to skip Financial Details.</small>
+                        </td>
+                    </tr>
                 </thead>
-                <tbody>
+                <tbody id="financial-details-section">
                     <tr>
                         <td class="label">Budget Requirement:</td>
                         <td><?= $this->Form->text('budget_requirement', ['class' => 'form-control peso-format', 'readonly' => true]) ?></td>
@@ -998,7 +1026,7 @@
                 <label><strong>Attachment (PDF)</strong></label>
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label for="attachment-sub-aro">SUB-ARO</label>
+                        <label for="attachment-sub-aro">SUB-ARO  </label>(Actual SUB-ARO Number)
                         <?= $this->Form->control('attachment_sub_aro', [
                             'type' => 'file',
                             'label' => false,
@@ -1033,7 +1061,7 @@
                         </div>
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label for="attachment-ar">AR</label>
+                        <label for="attachment-ar">AR </label>(Actual Activity Request Number)
                         <?= $this->Form->control('attachment_ar', [
                             'type' => 'file',
                             'label' => false,
@@ -1045,7 +1073,7 @@
                     <div class="col-md-6 mb-3">
                         <div class="row">
                             <div class="col-md-6 mb-2 mb-md-0">
-                                <label for="attachment-ac">ATC</label>
+                                <label for="attachment-ac">ATC </label>(Actual ATC Request Number)
                                 <?= $this->Form->control('attachment_ac', [
                                     'type' => 'file',
                                     'label' => false,
@@ -1066,8 +1094,11 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 mb-3"> <small class="text-muted">PDF files only.</small><br><br>
-                        <label for="attachment-list-participants">List of Participants</label>
+                    <div class="col-md-6 mb-3"> <small class="text-muted"></small><br><br>
+                    <label> PD Proposal Templates</label><br>
+                                        <a href="https://depedph-my.sharepoint.com/personal/gerald_magno_deped_gov_ph/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fgerald%5Fmagno%5Fdeped%5Fgov%5Fph%2FDocuments%2FPRC%20Program%20Accreditation%20Forms&ga=1" target="_blank" rel="noopener noreferrer">Download</a><br>
+                                        <br>
+                        <label for="attachment-list-participants">Attach List of Participants</label>
                         <?= $this->Form->control('attachment_list_participants', [
                             'type' => 'file',
                             'label' => false,
@@ -1076,10 +1107,17 @@
                             'accept' => '.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                         ]) ?>
                         <small class="text-muted">
-                            <a href="<?= $this->Url->build('/img/Participant List Template.xlsx') ?>" download>
-                                Excel file: Participant List Template
+                            <a href="<?= $this->Url->build('/img/Participant List Template.xlsx') ?>" download target="_blank" rel="noopener noreferrer">
+                                Download File: Participant List Template
                             </a>
                         </small>
+                        |
+                        <small class="text-muted">
+                            <a href="<?= $this->Url->build('/img/Participant List Template.xlsx') ?>" download target="_blank" rel="noopener noreferrer">
+                                PD list of participants Template
+                            </a>
+                        </small>
+                       
                     </div>
                     <div class="col-md-6 mb-3"></div>
                 </div>
@@ -1963,12 +2001,45 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     var proposalForm = document.getElementById('proposal-form');
+    var fundsToggle = document.getElementById('availability-of-funds');
+    var financialSection = document.getElementById('financial-details-section');
+    var fundsToggleLabel = document.querySelector('label[for="availability-of-funds"]');
+
+    function setFinancialEnabled(enabled) {
+        if (!financialSection) {
+            return;
+        }
+        financialSection.querySelectorAll('input, select, textarea, button').forEach(function (field) {
+            field.disabled = !enabled;
+        });
+        if (fundsToggleLabel) {
+            fundsToggleLabel.textContent = enabled ? 'On' : 'Off';
+        }
+        var status = document.getElementById('budget-status');
+        if (!enabled && status) {
+            status.style.display = 'none';
+            status.textContent = '';
+            status.className = 'alert mt-2 mb-0';
+        }
+    }
+
+    if (fundsToggle) {
+        setFinancialEnabled(fundsToggle.checked);
+        fundsToggle.addEventListener('change', function () {
+            setFinancialEnabled(fundsToggle.checked);
+        });
+    }
+
     if (proposalForm) {
         proposalForm.addEventListener('submit', function (event) {
             var scheduleRows = document.querySelectorAll('#schedule-rows input[name="activity_schedule_date[]"]');
             if (!scheduleRows || scheduleRows.length === 0) {
                 event.preventDefault();
                 alert('Please add at least one Activity Schedule.');
+                return;
+            }
+            var fundsEnabled = !fundsToggle || fundsToggle.checked;
+            if (!fundsEnabled) {
                 return;
             }
             var sourceTotal = getSourceFundTotal();

@@ -99,6 +99,19 @@ class Application extends BaseApplication
             // https://book.cakephp.org/4/en/security/csrf.html#cross-site-request-forgery-csrf-middleware
             ->add(new CsrfProtectionMiddleware([
                 'httponly' => true,
+                'skipCheckCallback' => function ($request) {
+                    $path = '/' . ltrim((string)$request->getPath(), '/');
+                    if ($path === '/notifications/fetch') {
+                        return true;
+                    }
+                    if ($path === '/notifications/mark-read' || $path === '/notifications/markRead') {
+                        return true;
+                    }
+                    if (preg_match('#^/notifications/mark-one(/|$)#', $path)) {
+                        return true;
+                    }
+                    return false;
+                },
             ]));
 
         return $middlewareQueue;
