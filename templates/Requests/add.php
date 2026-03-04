@@ -350,7 +350,7 @@
                             <th>Source of Fund</th>
                             <th>Grand Total</th>
                             <th>SUB-ARO</th>
-                            <th>S/WFP</th>
+                            <th>SWFP</th>
                             <th>WFP</th>
                             <th>AR</th>
                             <th>ATC</th>

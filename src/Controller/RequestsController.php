@@ -1533,31 +1533,31 @@ class RequestsController extends AppController
 
         $this->viewBuilder()->setLayout('ajax');
         $normalizedMode = strtolower($exportMode);
-        $summaryTitle = 'Summary Activities';
+        $summaryTitle = 'Summary of Activities';
         if ($normalizedMode === 'day') {
             $day = \DateTime::createFromFormat('Y-m-d', $exportDate);
             if ($day instanceof \DateTime) {
-                $summaryTitle = 'Summary ' . $day->format('F j, Y') . ' Activities';
+                $summaryTitle = 'Summary of ' . $day->format('F j, Y') . ' Activities';
             } else {
-                $summaryTitle = 'Summary Day Activities';
+                $summaryTitle = 'Summary of Day Activities';
             }
         } elseif ($normalizedMode === 'month') {
             $month = \DateTime::createFromFormat('Y-m', $exportDate);
             if ($month instanceof \DateTime) {
-                $summaryTitle = 'Summary ' . $month->format('F Y') . ' Activities';
+                $summaryTitle = 'Summary of ' . $month->format('F Y') . ' Activities';
             } else {
-                $summaryTitle = 'Summary Month Activities';
+                $summaryTitle = 'Summary of Month Activities';
             }
         } elseif ($normalizedMode === 'year') {
             $year = preg_replace('/[^0-9]/', '', $exportDate);
             if ($year !== '' && strlen($year) === 4) {
-                $summaryTitle = 'Summary ' . $year . ' Activities';
+                $summaryTitle = 'Summary of ' . $year . ' Activities';
             } else {
-                $summaryTitle = 'Summary Year Activities';
+                $summaryTitle = 'Summary of Year Activities';
             }
         }
         $pageTitle = $summaryTitle;
-        $this->set(compact('requests', 'requestSummaries', 'adminApprovalStatus', 'pageTitle', 'summaryTitle'));
+        $this->set(compact('requests', 'requestSummaries', 'adminApprovalStatus', 'pageTitle', 'summaryTitle', 'division'));
         $this->render('export_all_pdf');
     }
 

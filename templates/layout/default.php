@@ -618,7 +618,7 @@ $cakeDescription = 'Project OARAS';
     <!-- /.content-wrapper -->
     <footer class="main-footer">
         <div class="footer-inner">
-            <small>©Copyright 2026 21Joker | All Rights Reserved</small>
+            <small>© 2026 Paul Arwin S. Alda All Rights Reserved. | Project OARAS</small>
         </div>
     </footer>
 

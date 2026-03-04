@@ -382,6 +382,8 @@ function _approval_label(?string $status): string
                 $displayName = (string)($admin->username ?? '');
                 if (strcasecmp($displayName, 'SMMNE') === 0) {
                     $displayName = 'SMM&E';
+                } elseif (strcasecmp($displayName, 'AO') === 0) {
+                    $displayName = 'AO';
                 }
               ?>
               <div class="d-flex align-items-center justify-content-between mb-2">
@@ -402,6 +404,8 @@ function _approval_label(?string $status): string
               $reviewer = $approval->user->username ?? null;
               if (is_string($reviewer) && strcasecmp($reviewer, 'SMMNE') === 0) {
                   $reviewer = 'SMM&E';
+              } elseif (is_string($reviewer) && strcasecmp($reviewer, 'AO') === 0) {
+                  $reviewer = 'AO';
               }
               $remarksList[] = [
                   'name' => $reviewer ?: 'Reviewer',
@@ -452,7 +456,7 @@ function _approval_label(?string $status): string
       <?php
         $attachmentMap = [
         'SUB-ARO' => 'Attachment SUB-ARO',
-        'S/WFP' => 'Attachment SFWP',
+        'SWFP' => 'Attachment SFWP',
         'AR' => 'Attachment AR',
         'AC' => 'Attachment AC',
         'List of Participants' => 'Attachment List of Participants',

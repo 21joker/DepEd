@@ -9,11 +9,36 @@
  * - $requestSummaries
  * - $adminApprovalStatus
  * - $pageTitle
+ * - $division
  */
 $requests = $requests ?? [];
 $requestSummaries = $requestSummaries ?? [];
 $adminApprovalStatus = $adminApprovalStatus ?? [];
 $pageTitle = $pageTitle ?? 'All Requests';
+$division = strtoupper(trim((string)($division ?? '')));
+$checkedByMap = [
+  'CID' => ['name' => 'Janette V. Bautista', 'degree' => 'EdD', 'title' => 'Chief Education Supervisor'],
+  'OSDS' => ['name' => 'Leonida F. Culang', 'degree' => 'MPA', 'title' => 'Administrative Officer V'],
+  'SGOD' => ['name' => 'Rosalia B. Gutierrez', 'degree' => 'EdD', 'title' => 'Chief Education Supervisor'],
+];
+if ($division === '') {
+  foreach ($requestSummaries as $summary) {
+    $office = strtoupper(trim((string)($summary['pmis_activity_office'] ?? '')));
+    if ($office === '') {
+      $codeLine = (string)($summary['pmis_activity_code'] ?? '');
+      if ($codeLine !== '' && preg_match('/PMIS\\s*Activity\\s*Office\\s*:\\s*(CID|OSDS|SGOD)/i', $codeLine, $matches)) {
+        $office = strtoupper($matches[1]);
+      }
+    }
+    if (isset($checkedByMap[$office])) {
+      $division = $office;
+      break;
+    }
+  }
+}
+$checkedByName = $checkedByMap[$division]['name'] ?? '';
+$checkedByDegree = $checkedByMap[$division]['degree'] ?? '';
+$checkedByTitle = $checkedByMap[$division]['title'] ?? '';
 ?>
 <style>
   * { box-sizing: border-box; }
@@ -105,6 +130,34 @@ $pageTitle = $pageTitle ?? 'All Requests';
     background: #fff;
     margin-top: 10px;
   }
+  .signature-block {
+    margin: 18px 10px 0;
+    font-size: 12px;
+  }
+  .signature-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 0;
+  }
+  .signature-table td {
+    vertical-align: top;
+    padding-right: 16px;
+    border: 0;
+  }
+  .sig-label {
+    font-weight: 400;
+    margin-bottom: 16px;
+  }
+  .sig-name {
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .no-upper {
+    text-transform: none;
+  }
+  .sig-title {
+    margin-top: 2px;
+  }
   .footer-content {
     display: flex;
     gap: 16px;
@@ -178,7 +231,7 @@ $pageTitle = $pageTitle ?? 'All Requests';
   <?php
     $activityCount = is_countable($requests) ? count($requests) : 0;
     $summaryTitleText = (string)($summaryTitle ?? 'Summary of Activities');
-    $summaryPrefix = 'Summary ';
+    $summaryPrefix = 'Summary of ';
     $summarySuffix = ' Activities';
     $summaryMiddle = '';
     if (stripos($summaryTitleText, $summaryPrefix) === 0
@@ -206,7 +259,7 @@ $pageTitle = $pageTitle ?? 'All Requests';
     <hr class="divider">
     <div class="summary-title">
       <?php if ($summaryMiddle !== ''): ?>
-        Summary <span class="underline"><?= h($summaryMiddle) ?></span> Activities
+        Summary of <span class="underline"><?= h($summaryMiddle) ?></span> Activities
       <?php else: ?>
         <?= h($summaryTitleText) ?>
       <?php endif; ?>
@@ -224,7 +277,7 @@ $pageTitle = $pageTitle ?? 'All Requests';
         <th>Source of Fund</th>
         <th>Grand Total</th>
         <th>SUB-ARO</th>
-        <th>S/WFP</th>
+        <th>SWFP</th>
         <th>WFP</th>
         <th>AR</th>
         <th>ATC</th>
@@ -266,6 +319,42 @@ $pageTitle = $pageTitle ?? 'All Requests';
       <?php endforeach; ?>
     </tbody>
   </table>
+<br><br><br><br>
+  <div class="signature-block">
+    <table class="signature-table">
+      <tr>
+        <td>
+          <div class="sig-label">Prepared by:</div>
+          <div class="sig-name">Menard R. Sibayan</div>
+          <div class="sig-title">Senior Education Program Specialist</div>
+        </td>
+        <td>
+          <div class="sig-label">Checked by:</div>
+          <div class="sig-name">
+            <?= h($checkedByName) ?>
+            <?php if ($checkedByDegree !== ''): ?>
+              <span class="no-upper"> <?= h($checkedByDegree) ?></span>
+            <?php endif; ?>
+          </div>
+          <div class="sig-title"><?= h($checkedByTitle) ?></div>
+        </td>
+        <td>
+          <div class="sig-label">Verified by:</div>
+          <div class="sig-name">
+            Jacqueline S. Ramos <span class="no-upper">PhD, CESE</span>
+          </div>
+          <div class="sig-title">Asst. Schools Division Superintendent</div>
+        </td>
+        <td>
+          <div class="sig-label">Certified by:</div>
+          <div class="sig-name">
+            Alfredo B. Gumaru, Jr. <span class="no-upper">EdD CESO V</span>
+          </div>
+          <div class="sig-title">Schools Division Superintendent</div>
+        </td>
+      </tr>
+    </table>
+  </div>
 
   <div class="print-footer">
     <hr style="border:0; border-top:1px solid #2b2b2b; margin:0 0 6px;">

@@ -245,7 +245,7 @@ body.login-bg::after {
 </style>
 
     <?= $this->fetch('content') ?>
-    <div class="login-footer">©Copyright 2026 21Joker | All Rights Reserved 
+    <div class="login-footer">© 2026 Paul Arwin S. Alda All Rights Reserved. | Project OARAS 
        </div>
 
     <?= $this->Html->script([
