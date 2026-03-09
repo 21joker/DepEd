@@ -14,7 +14,7 @@
  * @var \App\View\AppView $this
  */
 
-$cakeDescription = 'Project OARAS';
+$cakeDescription = 'SEAL-Ver APS';
 ?>
 <!DOCTYPE html>
 <html>
@@ -245,7 +245,7 @@ body.login-bg::after {
 </style>
 
     <?= $this->fetch('content') ?>
-    <div class="login-footer">© 2026 Paul Arwin S. Alda All Rights Reserved. | Project OARAS 
+    <div class="login-footer">© 2026 Paul Arwin S. Alda All Rights Reserved. | SEAL-Ver APS 
        </div>
 
     <?= $this->Html->script([

@@ -5,8 +5,12 @@
                 <video class="login-logo-video" autoplay muted loop playsinline>
                     <source src="img/sdo.mp4" type="video/mp4">
                 </video>
-                <h1 class="login-title">Online Activity Request and Approval System</h1>
-                <p class="login-subtitle">Sign in to continue</p>
+                <h1 class="login-title">SEAL-<span class="title-ver">Ver</span> APS</h1>
+                <div class="login-meta">
+                    <p class="login-subtitle">Verification &amp; Activity Proposal System</p>
+                    <p class="login-caption">Streamlined, Enhanced, Automation, Logistics</p>
+                </div>
+                <div class="login-divider"></div>
             </div>
 
             <div class="mb-3"><?= $this->Flash->render() ?></div>

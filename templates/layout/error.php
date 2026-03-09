@@ -36,7 +36,7 @@
         <?= $this->Html->link(__('Back'), 'javascript:history.back()') ?>
     </div>
     <footer style="text-align:center; font-size:12px; color:#555; margin-top:16px;">
-        © 2026 Paul Arwin S. Alda All Rights Reserved. | Project OARAS
+        © 2026 Paul Arwin S. Alda All Rights Reserved. | SEAL-Ver APS
     </footer>
 </body>
 </html>

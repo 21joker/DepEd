@@ -14,7 +14,7 @@
  * @var \App\View\AppView $this
  */
 
-$cakeDescription = 'Project OARAS';
+$cakeDescription = 'SEAL-Ver APS';
 ?>
 <!DOCTYPE html>
 <html>
@@ -618,7 +618,7 @@ $cakeDescription = 'Project OARAS';
     <!-- /.content-wrapper -->
     <footer class="main-footer">
         <div class="footer-inner">
-            <small>© 2026 Paul Arwin S. Alda All Rights Reserved. | Project OARAS</small>
+            <small>© 2026 Paul Arwin S. Alda All Rights Reserved. | SEAL-Ver APS</small>
         </div>
     </footer>
 

@@ -63,7 +63,7 @@ endif;
     <meta name="viewport" content="width=device-width, initial-scale=1">
   
     <title>
-        PROJECT OARAS
+        SEAL-Ver APS
         <?= $this->fetch('title') ?>
     </title>
     <?= $this->Html->meta('icon', 'sdo.ico') ?>
