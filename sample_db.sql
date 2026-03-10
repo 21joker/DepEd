@@ -87,6 +87,7 @@ CREATE TABLE `users` (
   `username` varchar(55) NOT NULL,
   `password` varchar(255) NOT NULL,
   `role` varchar(55) NOT NULL,
+  `account_status` varchar(20) NOT NULL DEFAULT 'approved',
   `created` datetime NOT NULL,
   `modified` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -94,7 +94,7 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table id="users-table" class="table table-sm table-bordered mb-0" data-enroll="<?= $isEnroll ? '1' : '0' ?>">
+                <table id="users-table" class="table table-sm table-bordered mb-0" data-enroll="<?= $isEnroll ? '1' : '0' ?>" data-status-column="<?= h($userStatusColumn ?? '') ?>">
                 <thead>
                 <tr>
                     <?php if ($isEnroll): ?>
@@ -108,6 +108,9 @@
                         <th>Full Name</th>
                         <th>Email Address</th>
                         <th>Office</th>
+                        <?php if (!empty($userStatusColumn)): ?>
+                            <th>Status</th>
+                        <?php endif; ?>
                         <th>Edit Account</th>
                     <?php endif; ?>
                 </tr>

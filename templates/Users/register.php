@@ -425,19 +425,23 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-<?php if (!empty($showCredentials)): ?>
+<?php if (!empty($showRegistrationNotice)): ?>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var username = <?= json_encode($savedUsername ?? '') ?>;
     var password = <?= json_encode($savedPassword ?? '123') ?>;
+    var status = <?= json_encode($registrationStatus ?? '') ?>;
     var modal = document.getElementById('register-alert-modal');
     var message = document.getElementById('register-alert-message');
     if (!modal || !message) {
         return;
     }
-    var html = '<div><strong>Account Created Successful</strong></div>' +
-        '<div style="margin-top:8px;">Username: ' + String(username) + '</div>' +
-        '<div>Password: ' + String(password) + '</div>';
+    var html = '<div><strong>Your account has been successfully created.</strong></div>';
+    if (String(status).toLowerCase() === 'pending') {
+        html += '<div style="margin-top:8px;">Your registration is currently pending administrator approval.</div>' +
+            '<div>Please wait until the administrator activates your account before logging in.</div>' +
+            '<div style="margin-top:8px;">You will be notified once your account has been approved.</div>';
+    }
     message.innerHTML = html;
     modal.setAttribute('data-redirect', <?= json_encode($this->Url->build(['action' => 'login'])) ?>);
     modal.classList.add('show');

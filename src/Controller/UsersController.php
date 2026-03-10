@@ -26,7 +26,10 @@ class UsersController extends AppController
         $user = $this->Users->newEmptyEntity();
         $totalUsers = $this->Users->find()->count();
 
-        $this->set(compact('user', 'totalUsers'));
+        $this->refreshUserSchema();
+        $userStatusColumn = $this->getUserStatusColumn();
+
+        $this->set(compact('user', 'totalUsers', 'userStatusColumn'));
     }
 
     public function getUsers()
@@ -83,6 +86,7 @@ class UsersController extends AppController
         if ($this->request->is('post')) {
             $data = $this->request->getData();
             $schema = $this->Users->getSchema();
+            $statusColumn = $this->getUserStatusColumn();
             $rawEsignature = $data['esignature'] ?? null;
             if ($rawEsignature instanceof \Psr\Http\Message\UploadedFileInterface && !$schema->hasColumn('esignature')) {
                 $result = [
@@ -110,6 +114,9 @@ class UsersController extends AppController
                 if (!$schema->hasColumn($field)) {
                     unset($data[$field]);
                 }
+            }
+            if ($statusColumn && !isset($data[$statusColumn])) {
+                $data[$statusColumn] = 'approved';
             }
 
             $user = $this->Users->patchEntity($user, $data);
@@ -404,6 +411,7 @@ class UsersController extends AppController
     public function login()
     {
         $this->viewBuilder()->setLayout('login');
+        $this->refreshUserSchema();
 
         $users = $this->Users->find()->count();
         if($users<1){
@@ -413,6 +421,18 @@ class UsersController extends AppController
         if ($this->request->is('post')) {
             $user = $this->Auth->identify();
             if ($user) {
+                $statusColumn = $this->getUserStatusColumn();
+                if ($statusColumn) {
+                    $statusRaw = $user[$statusColumn] ?? null;
+                    $status = strtolower(trim((string)$statusRaw));
+                    if ($status !== '' && !in_array($status, ['approved', 'active', 'enabled'], true)) {
+                        $message = $status === 'pending'
+                            ? 'Your account is pending admin approval.'
+                            : 'Your account was declined. Please contact an administrator.';
+                        $this->Flash->error(__($message));
+                        return;
+                    }
+                }
                 $this->request->getSession()->renew();
                 $this->request->getSession()->delete('last_request_id');
                 $this->Auth->setUser($user);
@@ -451,6 +471,7 @@ class UsersController extends AppController
         if ($this->request->is('post')) {
             $data = $this->request->getData();
             $schema = $this->Users->getSchema();
+            $statusColumn = $this->getUserStatusColumn();
             $data['role'] = $data['role'] ?? 'User';
             $data['password'] = '123';
 
@@ -476,6 +497,9 @@ class UsersController extends AppController
                     unset($data[$field]);
                 }
             }
+            if ($statusColumn && !isset($data[$statusColumn])) {
+                $data[$statusColumn] = 'pending';
+            }
 
             $user = $this->Users->patchEntity($user, $data);
 
@@ -490,9 +514,10 @@ class UsersController extends AppController
                     $this->Users->updateAll(['esignature' => $esignaturePath], ['id' => $user->id]);
                 }
                 $this->set([
-                    'showCredentials' => true,
+                    'showRegistrationNotice' => true,
                     'savedUsername' => $user->username ?? ($data['username'] ?? ''),
                     'savedPassword' => '123',
+                    'registrationStatus' => $statusColumn ? 'pending' : null,
                 ]);
                 return;
             }
@@ -622,6 +647,57 @@ class UsersController extends AppController
     exit;
 }
 
+    public function setApprovalStatus()
+    {
+        $response = $this->ensureUserManager();
+        if ($response) {
+            return $response;
+        }
+        $this->request->allowMethod(['post']);
+        $this->refreshUserSchema();
+        $statusColumn = $this->getUserStatusColumn();
+        if (!$statusColumn) {
+            return $this->response->withType('application/json')
+                ->withStringBody(json_encode([
+                    'status' => 'error',
+                    'message' => 'Approval status column is missing. Please add `account_status` to the users table.',
+                ]));
+        }
+        $id = (int)$this->request->getData('id');
+        $status = strtolower(trim((string)$this->request->getData('status')));
+        if ($id <= 0 || !in_array($status, ['approved', 'declined', 'pending'], true)) {
+            return $this->response->withType('application/json')
+                ->withStringBody(json_encode([
+                    'status' => 'error',
+                    'message' => 'Invalid approval request.',
+                ]));
+        }
+        try {
+            $user = $this->Users->get($id);
+            $user->set($statusColumn, $status);
+            if ($this->Users->save($user)) {
+                return $this->response->withType('application/json')
+                    ->withStringBody(json_encode([
+                        'status' => 'success',
+                        'message' => 'User status updated.',
+                    ]));
+            }
+        } catch (\Throwable $e) {
+            return $this->response->withType('application/json')
+                ->withStringBody(json_encode([
+                    'status' => 'error',
+                    'message' => 'Failed to update user status.',
+                    'error' => $e->getMessage(),
+                ]));
+        }
+
+        return $this->response->withType('application/json')
+            ->withStringBody(json_encode([
+                'status' => 'error',
+                'message' => 'Failed to update user status.',
+            ]));
+    }
+
     public function logout()
     {
         return $this->redirect($this->Auth->logout());
@@ -659,6 +735,7 @@ class UsersController extends AppController
             'id',
             'username',
             'role',
+            'account_status',
             'created',
             'modified',
             'id_number',
@@ -680,7 +757,23 @@ class UsersController extends AppController
                 $select[] = $field;
             }
         }
+        $statusColumn = $this->getUserStatusColumn();
+        if ($statusColumn && !in_array($statusColumn, $select, true)) {
+            $select[] = $statusColumn;
+        }
         return $select;
+    }
+
+    private function getUserStatusColumn(): ?string
+    {
+        $schema = $this->Users->getSchema();
+        if ($schema->hasColumn('account_status')) {
+            return 'account_status';
+        }
+        if ($schema->hasColumn('status')) {
+            return 'status';
+        }
+        return null;
     }
 
     private function extractEsignatureUpload(array $data, ?string &$error = null): ?\Psr\Http\Message\UploadedFileInterface

@@ -24,6 +24,8 @@ use Cake\ORM\Entity;
  * @property string|null $email_address
  * @property string|null $office
  * @property string|null $section_unit
+ * @property string|null $account_status
+ * @property string|null $status
  * @property \Cake\I18n\FrozenTime $created
  * @property \Cake\I18n\FrozenTime $modified
  *
@@ -55,6 +57,8 @@ class User extends Entity
         'email_address' => true,
         'office' => true,
         'section_unit' => true,
+        'account_status' => true,
+        'status' => true,
         'esignature' => true,
         'created' => true,
         'modified' => true,

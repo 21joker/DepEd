@@ -1,6 +1,11 @@
+function getCsrfToken() {
+    return $('meta[name="csrf-token"]').attr('content') || $('[name="_csrfToken"]').val() || '';
+}
+
 $(function () {
-    var csrfToken = $('meta[name="csrf-token"]').attr('content') || $('[name="_csrfToken"]').val();
+    var csrfToken = getCsrfToken();
     var isEnroll = $('#users-table').data('enroll') === 1 || new URLSearchParams(window.location.search).get('enroll') === '1';
+    var statusColumn = String($('#users-table').data('status-column') || '');
     var resetMode = false;
     getUsers();
 
@@ -409,6 +414,23 @@ $(function () {
         }
     });
 
+    $('#users-table').on('click', '.approve-user, .decline-user', function (e) {
+        e.preventDefault();
+        if (isEnroll) {
+            return;
+        }
+        var id = $(this).data('id');
+        var status = $(this).data('status');
+        if (!id || !status) {
+            return;
+        }
+        var actionLabel = status === 'approved' ? 'approve' : 'decline';
+        if (!confirm('Are you sure you want to ' + actionLabel + ' this account?')) {
+            return;
+        }
+        updateApprovalStatus(id, status);
+    });
+
     $('#users-modal').on('hidden.bs.modal', function () {
         if (!isEnroll) {
             $('#esignature-preview').attr('src', '');
@@ -476,8 +498,54 @@ function buildDisplayName(data) {
     if (data.rank) { parts.push(data.rank); }
     return parts.join(' ').trim();
 }
+
+function normalizeStatusValue(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    return String(value).trim().toLowerCase();
+}
+
+function renderStatusBadge(value) {
+    var status = normalizeStatusValue(value);
+    if (!status) {
+        return '<span class="text-muted">—</span>';
+    }
+    var label = status.charAt(0).toUpperCase() + status.slice(1);
+    var cls = 'secondary';
+    if (status === 'pending') {
+        cls = 'warning';
+    } else if (status === 'approved' || status === 'active' || status === 'enabled') {
+        cls = 'success';
+    } else if (status === 'declined' || status === 'rejected') {
+        cls = 'danger';
+    }
+    return '<span class="badge badge-' + cls + '">' + label + '</span>';
+}
+
+function updateApprovalStatus(id, status) {
+    var csrfToken = getCsrfToken();
+    $.ajax({
+        url: '/usermngt/Users/setApprovalStatus',
+        type: 'POST',
+        dataType: 'json',
+        data: { id: id, status: status, _csrfToken: csrfToken },
+        headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
+    })
+        .done(function (data) {
+            if (data && data.status === 'success') {
+                getUsers();
+            }
+            alert((data && data.message) ? data.message : 'Status updated.');
+        })
+        .fail(function (jqXHR, textStatus, errorThrown) {
+            alert(errorThrown || 'error');
+        });
+}
+
 function getUsers() {
     var isEnroll = $('#users-table').data('enroll') === 1 || new URLSearchParams(window.location.search).get('enroll') === '1';
+    var statusColumn = String($('#users-table').data('status-column') || '');
     var columns;
     if (isEnroll) {
         columns = [
@@ -501,20 +569,37 @@ function getUsers() {
             {
                 data: null,
                 render: function (data) {
-                    return '<button class="btn btn-sm btn-info view-user" data-id="' + data.id + '">View</button>' +
+                    var actions = '<button class="btn btn-sm btn-info view-user" data-id="' + data.id + '">View</button>' +
                         ' <button class="btn btn-sm btn-primary edit" data-id="' + data.id + '">Edit Account</button>' +
                         ' <button class="btn btn-sm btn-warning reset-password" data-id="' + data.id + '">Reset Password</button>' +
                         ' <button class="btn btn-sm btn-danger delete" data-id="' + data.id + '">Delete</button>';
+                    if (statusColumn) {
+                        var statusValue = normalizeStatusValue(data[statusColumn]);
+                        if (statusValue === 'pending') {
+                            actions = ' <button class="btn btn-sm btn-success approve-user" data-id="' + data.id + '" data-status="approved">Approve</button>' +
+                                ' <button class="btn btn-sm btn-secondary decline-user" data-id="' + data.id + '" data-status="declined">Decline</button>' +
+                                ' ' + actions;
+                        }
+                    }
+                    return actions;
                 }
             }
         ];
+        if (statusColumn) {
+            columns.splice(4, 0, {
+                data: null,
+                render: function (data) {
+                    return renderStatusBadge(data[statusColumn]);
+                }
+            });
+        }
     }
 
     var table = $("#users-table").dataTable({
         "responsive": true,
         "autoWidth": false,
         "destroy":true,
-        "order": [[ 0, "asc" ]],
+        "order": [[ 0, "desc" ]],
         "ajax": {
             "url": '/usermngt/Users/getUsers'
         },
