@@ -25,9 +25,18 @@ class RequestsController extends AppController
         $this->viewBuilder()->setLayout($this->Auth->user() ? 'default' : 'login');
         $requestEntity = $this->Requests->newEmptyEntity();
         $this->loadModel('Users');
+        $proposalParam = strtolower((string)$this->request->getQuery('proposal'));
+        $proposalTitle = $proposalParam === 'pd' ? 'PD Proposal' : 'Activity Proposal';
+        $isPdProposal = $proposalParam === 'pd';
 
         if ($this->request->is('post')) {
             $formData = $this->request->getData();
+            $submittedType = trim((string)($formData['proposal_type'] ?? ''));
+            if ($submittedType !== '') {
+                $proposalTitle = $submittedType;
+            }
+            $isPdProposal = strcasecmp($proposalTitle, 'PD Proposal') === 0;
+            $formData['proposal_type'] = $proposalTitle;
             $venueChoice = trim((string)($formData['venue_modality_choice'] ?? ''));
             $venueDetails = trim((string)($formData['venue_modality_details'] ?? ''));
             $venueCombined = $venueChoice;
@@ -99,13 +108,14 @@ class RequestsController extends AppController
 
             $title = trim((string)($formData['title_of_activity'] ?? $formData['title'] ?? ''));
             if ($title === '') {
-                $title = 'Activity Proposal';
+                $title = $proposalTitle;
             }
             $requestEntity->title = $title;
             $requestEntity->subject = $title;
 
             $detailsLines = [];
             $detailsMap = [
+                'Proposal Type' => 'proposal_type',
                 'PMIS Activity Code' => 'pmis_activity_code',
                 'PMIS Activity Office' => 'pmis_activity_office',
                 'Title of Activity' => 'title_of_activity',
@@ -257,9 +267,7 @@ class RequestsController extends AppController
                 $requestEntity->user_id = $authId;
             }
 
-        $adminCount = $this->Users->find()
-            ->where(['role IN' => ['Administrator', 'Approver']])
-            ->count();
+            $adminCount = count($this->getProposalApprovers($isPdProposal));
             $requestEntity->approvals_needed = $adminCount;
 
             if ($this->Requests->save($requestEntity)) {
@@ -285,7 +293,11 @@ class RequestsController extends AppController
                 $this->request->getSession()->write('last_request_id', $requestEntity->id);
                 $this->notifyAdmins($requestEntity->id, $title, $rawName);
                 $this->Flash->success('Request submitted. Pending approval by all admins.');
-                return $this->redirect(['action' => 'add']);
+                $redirectParams = ['action' => 'add'];
+                if ($isPdProposal) {
+                    $redirectParams['?'] = ['proposal' => 'pd'];
+                }
+                return $this->redirect($redirectParams);
             }
 
             $this->Flash->error('Failed to submit request.');
@@ -294,11 +306,7 @@ class RequestsController extends AppController
         $this->loadModel('Users');
         $this->loadModel('RequestApprovals');
 
-        $admins = $this->Users->find()
-            ->where(['role IN' => ['Administrator', 'Approver']])
-            ->orderAsc('id')
-            ->all();
-        $admins = $this->orderApproverHierarchy($admins);
+        $admins = $this->getProposalApprovers($isPdProposal);
 
         $lastRequestId = $this->request->getSession()->read('last_request_id');
         $lastRequest = null;
@@ -490,7 +498,8 @@ class RequestsController extends AppController
             'requestStatusById',
             'userCounts',
             'showForm',
-            'isEdit'
+            'isEdit',
+            'proposalTitle'
         ));
     }
 
@@ -511,6 +520,16 @@ class RequestsController extends AppController
         $requestEntity = $this->Requests->get($id);
         $authId = (int)$this->Auth->user('id');
         $sessionRequestId = (int)$this->request->getSession()->read('last_request_id');
+        $detailsSource = $requestEntity->details;
+        if ($detailsSource === null || trim((string)$detailsSource) === '') {
+            $detailsSource = $requestEntity->message ?? '';
+        }
+        $existingFields = $this->extractFieldsFromDetails((string)$detailsSource);
+        $proposalTitle = trim((string)($existingFields['Proposal Type'] ?? ''));
+        if ($proposalTitle === '') {
+            $proposalTitle = 'Activity Proposal';
+        }
+        $isPdProposal = strcasecmp($proposalTitle, 'PD Proposal') === 0;
 
         if ($authId && (int)$requestEntity->user_id !== $authId) {
             $this->Flash->error('You are not allowed to edit this request.');
@@ -544,6 +563,12 @@ class RequestsController extends AppController
 
         if ($this->request->is(['patch', 'post', 'put'])) {
             $formData = $this->request->getData();
+            $submittedType = trim((string)($formData['proposal_type'] ?? ''));
+            if ($submittedType !== '') {
+                $proposalTitle = $submittedType;
+            }
+            $isPdProposal = strcasecmp($proposalTitle, 'PD Proposal') === 0;
+            $formData['proposal_type'] = $proposalTitle;
             $venueChoice = trim((string)($formData['venue_modality_choice'] ?? ''));
             $venueDetails = trim((string)($formData['venue_modality_details'] ?? ''));
             $venueCombined = $venueChoice;
@@ -575,11 +600,6 @@ class RequestsController extends AppController
             }
             $requestEntity = $this->Requests->patchEntity($requestEntity, $formData);
             $attachmentUploads = $this->prepareAttachmentUploads($formData);
-            $detailsSource = $requestEntity->details;
-            if ($detailsSource === null || trim((string)$detailsSource) === '') {
-                $detailsSource = $requestEntity->message ?? '';
-            }
-            $existingFields = $this->extractFieldsFromDetails((string)$detailsSource);
 
             $rawName = trim((string)$this->request->getData('name'));
             $rawEmail = trim((string)$this->request->getData('email'));
@@ -591,13 +611,14 @@ class RequestsController extends AppController
 
             $title = trim((string)($formData['title_of_activity'] ?? $formData['title'] ?? ''));
             if ($title === '') {
-                $title = 'Activity Proposal';
+                $title = $proposalTitle;
             }
             $requestEntity->title = $title;
             $requestEntity->subject = $title;
 
             $detailsLines = [];
             $detailsMap = [
+                'Proposal Type' => 'proposal_type',
                 'PMIS Activity Code' => 'pmis_activity_code',
                 'PMIS Activity Office' => 'pmis_activity_office',
                 'Title of Activity' => 'title_of_activity',
@@ -759,7 +780,11 @@ class RequestsController extends AppController
             if ($this->Requests->save($requestEntity)) {
                 $this->storeAttachmentUploads($attachmentUploads, (int)$requestEntity->id);
                 $this->Flash->success('Request updated.');
-                return $this->redirect(['action' => 'add']);
+                $redirectParams = ['action' => 'add'];
+                if ($isPdProposal) {
+                    $redirectParams['?'] = ['proposal' => 'pd'];
+                }
+                return $this->redirect($redirectParams);
             }
 
             $this->Flash->error('Failed to update request.');
@@ -877,11 +902,7 @@ class RequestsController extends AppController
         $this->loadModel('Users');
         $this->loadModel('RequestApprovals');
 
-        $admins = $this->Users->find()
-            ->where(['role IN' => ['Administrator', 'Approver']])
-            ->orderAsc('id')
-            ->all();
-        $admins = $this->orderApproverHierarchy($admins);
+        $admins = $this->getProposalApprovers($isPdProposal);
 
         $userRequests = [];
         $requestSummaries = [];
@@ -951,7 +972,8 @@ class RequestsController extends AppController
             'userRequests',
             'requestSummaries',
             'showForm',
-            'isEdit'
+            'isEdit',
+            'proposalTitle'
         ));
         $this->render('add');
     }
@@ -1246,6 +1268,17 @@ class RequestsController extends AppController
             return $this->redirect(['action' => 'add']);
         }
 
+        $detailsSource = $requestEntity->details;
+        if ($detailsSource === null || trim((string)$detailsSource) === '') {
+            $detailsSource = $requestEntity->message ?? '';
+        }
+        $detailsFields = $this->extractFieldsFromDetails((string)$detailsSource);
+        $proposalTitle = trim((string)($detailsFields['Proposal Type'] ?? ''));
+        if ($proposalTitle === '') {
+            $proposalTitle = 'Activity Proposal';
+        }
+        $isPdProposal = strcasecmp($proposalTitle, 'PD Proposal') === 0;
+
         $approvals = [];
         try {
             $this->loadModel('RequestApprovals');
@@ -1261,12 +1294,7 @@ class RequestsController extends AppController
         $admins = [];
         $approvalStatuses = [];
         try {
-            $this->loadModel('Users');
-        $admins = $this->Users->find()
-            ->where(['role IN' => ['Administrator', 'Approver']])
-            ->orderAsc('id')
-            ->all();
-        $admins = $this->orderApproverHierarchy($admins);
+            $admins = $this->getProposalApprovers($isPdProposal);
         } catch (\Throwable $e) {
             // Ignore if users table isn't available.
         }
@@ -1348,7 +1376,8 @@ class RequestsController extends AppController
             'admins',
             'approvalStatuses',
             'statusOnly',
-            'remarksList'
+            'remarksList',
+            'proposalTitle'
         ));
     }
 
@@ -1391,6 +1420,12 @@ class RequestsController extends AppController
         if ($detailsSource === null || trim((string)$detailsSource) === '') {
             $detailsSource = $requestEntity->message ?? '';
         }
+        $detailsFields = $this->extractFieldsFromDetails((string)$detailsSource);
+        $proposalTitle = trim((string)($detailsFields['Proposal Type'] ?? ''));
+        if ($proposalTitle === '') {
+            $proposalTitle = 'Activity Proposal';
+        }
+        $isPdProposal = strcasecmp($proposalTitle, 'PD Proposal') === 0;
         $detailsText = trim((string)$detailsSource);
         if ($detailsText !== '') {
             $lines = preg_split("/\\r\\n|\\n|\\r/", $detailsText);
@@ -1471,6 +1506,11 @@ class RequestsController extends AppController
               }
           }
           $approverUsernames = ['po', 'smmne', 'ao', 'budget', 'accountant'];
+          if ($isPdProposal) {
+              $approverUsernames[] = 'hrdd';
+              $approverUsernames[] = 'HRDD';
+              $approverUsernames = array_values(array_unique($approverUsernames));
+          }
           try {
               $this->loadModel('Users');
               try {
@@ -1506,7 +1546,7 @@ class RequestsController extends AppController
           }
 
         $this->viewBuilder()->setLayout('ajax');
-        $pageTitle = 'Activity Proposal';
+        $pageTitle = $proposalTitle;
         $this->set(compact(
             'requestEntity',
             'pageTitle',
@@ -2137,6 +2177,81 @@ class RequestsController extends AppController
         return $adminList;
     }
 
+    private function getProposalApprovers(bool $includeHrdd = false): array
+    {
+        $this->loadModel('Users');
+        $admins = $this->Users->find()
+            ->where(['role IN' => ['Administrator', 'Approver']])
+            ->orderAsc('id')
+            ->all();
+        $adminList = is_array($admins) ? $admins : iterator_to_array($admins, false);
+        if ($includeHrdd) {
+            $adminList = $this->appendApproverByUsername($adminList, 'HRDD');
+        }
+        if (!$includeHrdd) {
+            return $this->orderApproverHierarchy($adminList);
+        }
+
+        $hierarchy = $this->getApproverHierarchy();
+        $hierarchy = array_merge(['HRDD' => 0], $hierarchy);
+        $rankFor = function ($admin) use ($hierarchy): array {
+            $label = strtoupper(trim((string)($admin->username ?? '')));
+            $rank = $this->getApproverRank($label, $hierarchy);
+            if ($rank !== null) {
+                return [$rank, $label, (int)($admin->id ?? 0)];
+            }
+            return [PHP_INT_MAX, $label, (int)($admin->id ?? 0)];
+        };
+
+        usort($adminList, function ($a, $b) use ($rankFor): int {
+            [$rankA, $labelA, $idA] = $rankFor($a);
+            [$rankB, $labelB, $idB] = $rankFor($b);
+            if ($rankA !== $rankB) {
+                return $rankA <=> $rankB;
+            }
+            $labelCompare = strcmp($labelA, $labelB);
+            if ($labelCompare !== 0) {
+                return $labelCompare;
+            }
+            return $idA <=> $idB;
+        });
+
+        return $adminList;
+    }
+
+    private function appendApproverByUsername(array $admins, string $username): array
+    {
+        $target = strtolower(trim($username));
+        if ($target === '') {
+            return $admins;
+        }
+        foreach ($admins as $admin) {
+            $label = strtolower(trim((string)($admin->username ?? '')));
+            if ($label === $target) {
+                return $admins;
+            }
+        }
+
+        try {
+            $this->loadModel('Users');
+            $user = $this->Users->find()
+                ->where(['username' => $username])
+                ->first();
+            if (!$user && $username !== $target) {
+                $user = $this->Users->find()
+                    ->where(['username' => $target])
+                    ->first();
+            }
+            if ($user) {
+                $admins[] = $user;
+            }
+        } catch (\Throwable $e) {
+            // Ignore if users table isn't available.
+        }
+
+        return $admins;
+    }
+
       private function getApproverHierarchy(): array
       {
           return [
@@ -2206,6 +2321,7 @@ class RequestsController extends AppController
         }
 
         $knownLabels = [
+            'Proposal Type',
             'PMIS Activity Code',
             'Title of Activity',
             'Proponent/s',

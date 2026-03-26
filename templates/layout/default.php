@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -521,7 +521,9 @@ $cakeDescription = 'SEAL-Ver APS';
                          with font-awesome or any other icon font library -->
                     <li class="nav-item menu-open">
                         <?php
-                            $isActivityProposal = $controller === 'Requests' && $action === 'add';
+                            $proposalParam = strtolower((string)$this->getRequest()->getQuery('proposal'));
+                            $isPdProposal = $controller === 'Requests' && $action === 'add' && $proposalParam === 'pd';
+                            $isActivityProposal = $controller === 'Requests' && $action === 'add' && !$isPdProposal;
                             $isProjectProposal = $controller === 'Requests' && $action === 'project';
                             $role = $auth['role'] ?? null;
                             $showProposalTabs = !in_array($role, ['Administrator', 'Approver', 'Superuser'], true);
@@ -531,6 +533,11 @@ $cakeDescription = 'SEAL-Ver APS';
                                class="nav-link <?= $isActivityProposal ? 'active' : '' ?>">
                                 <i class="nav-icon fas fa-file-alt"></i>
                                 <p>Activity Proposal</p>
+                            </a>
+                            <a href="<?= $this->Url->build(['controller' => 'Requests', 'action' => 'add', '?' => ['proposal' => 'pd']]) ?>"
+                               class="nav-link <?= $isPdProposal ? 'active' : '' ?>">
+                                <i class="nav-icon fas fa-file-alt"></i>
+                                <p>PD Proposal</p>
                             </a>
                         <?php endif; ?>
                         <?php if (in_array($auth['role'] ?? null, ['Superuser', 'Administrator', 'Approver'], true)): ?>
@@ -618,7 +625,7 @@ $cakeDescription = 'SEAL-Ver APS';
     <!-- /.content-wrapper -->
     <footer class="main-footer">
         <div class="footer-inner">
-            <small>© 2026 Paul Arwin S. Alda All Rights Reserved. | SEAL-Ver APS</small>
+            <small>&copy; Schools Division Office of Santiago City | SEAL-Ver APS</small>
         </div>
     </footer>
 
@@ -1010,3 +1017,5 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </body>
 </html>
+
+

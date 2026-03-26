@@ -8,7 +8,12 @@
             <p class="login-box-msg">Register an account</p>
             <?= $this->Form->create(null, ['type' => 'file']) ?>
             <div class="form-group mb-3">
-                <?= $this->Form->control('id_number', ['class' => 'form-control', 'placeholder' => 'ID Number', 'required' => true]) ?>
+                <?= $this->Form->control('id_number', [
+                    'class' => 'form-control',
+                    'placeholder' => 'DepEd Employee ID Number',
+                    'label' => 'DepEd Employee ID Number',
+                    'required' => true
+                ]) ?>
             </div>
             <div class="form-group mb-3">
                 <?= $this->Form->control('username', ['class' => 'form-control', 'placeholder' => 'Username', 'required' => true]) ?>
@@ -305,7 +310,12 @@
                 ]) ?>
             </div>
             <div class="form-group mb-3">
-                <?= $this->Form->control('email_address', ['class' => 'form-control', 'placeholder' => 'Email Address', 'required' => true]) ?>
+                <?= $this->Form->control('email_address', [
+                    'class' => 'form-control',
+                    'placeholder' => 'DepEd Email Address',
+                    'label' => 'DepEd Email Address',
+                    'required' => true
+                ]) ?>
             </div>
             <div class="form-group mb-3">
                 <?= $this->Form->control('office', [
@@ -584,3 +594,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
+
+
+

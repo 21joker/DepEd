@@ -623,7 +623,7 @@ class UsersController extends AppController
             return $this->response->withType('application/json')
                 ->withStringBody(json_encode([
                     'status' => 'success',
-                    'message' => 'Request sent to superuser.',
+                    'message' => 'Request sent to admin, please wait for the confirmation.',
                 ]));
         }
 

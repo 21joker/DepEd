@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
@@ -36,7 +36,8 @@
         <?= $this->Html->link(__('Back'), 'javascript:history.back()') ?>
     </div>
     <footer style="text-align:center; font-size:12px; color:#555; margin-top:16px;">
-        © 2026 Paul Arwin S. Alda All Rights Reserved. | SEAL-Ver APS
+        &copy; Schools Division Office of Santiago City | SEAL-Ver APS
     </footer>
 </body>
 </html>
+

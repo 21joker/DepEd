@@ -245,7 +245,7 @@ body.login-bg::after {
 </style>
 
     <?= $this->fetch('content') ?>
-    <div class="login-footer">© 2026 Paul Arwin S. Alda All Rights Reserved. | SEAL-Ver APS 
+    <div class="login-footer">&copy; Schools Division Office of Santiago City | SEAL-Ver APS 
        </div>
 
     <?= $this->Html->script([
@@ -266,4 +266,7 @@ body.login-bg::after {
     </script>
 </body>
 </html>
+
+
+
 

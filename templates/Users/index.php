@@ -106,7 +106,7 @@
                     <?php else: ?>
                         <th>ID</th>
                         <th>Full Name</th>
-                        <th>Email Address</th>
+                        <th>DepEd Email Address</th>
                         <th>Office</th>
                         <?php if (!empty($userStatusColumn)): ?>
                             <th>Status</th>
@@ -137,10 +137,10 @@
             <div class="modal-body">
                 <?= $this->Form->create($user, ['id' => 'users-form', 'type' => 'file'])?>
                 <?php if ($isEnroll): ?>
-                    <label>ID Number</label>
+                    <label>DepEd Employee ID Number</label>
                     <?= $this->Form->control('id_number', [
                         'class' => 'form-control',
-                        'placeholder' => 'ID Number',
+                        'placeholder' => 'DepEd Employee ID Number',
                         'label' => false,
                         'id' => 'id-number-enroll'
                     ]) ?>
@@ -202,10 +202,10 @@
                         'label' => false,
                         'id' => 'position-enroll'
                     ]) ?>
-                    <label>Email Address</label>
+                    <label>DepEd Email Address</label>
                     <?= $this->Form->control('email_address', [
                         'class' => 'form-control',
-                        'placeholder' => 'Email Address',
+                        'placeholder' => 'DepEd Email Address',
                         'label' => false,
                         'type' => 'email',
                         'id' => 'email-address-enroll'
@@ -283,10 +283,10 @@
                         'id' => 'role'
                     ]) ?>
                 <?php else: ?>
-                    <label>ID Number</label>
+                    <label>DepEd Employee ID Number</label>
                     <?= $this->Form->control('id_number', [
                         'class' => 'form-control',
-                        'placeholder' => 'ID Number',
+                        'placeholder' => 'DepEd Employee ID Number',
                         'label' => false,
                         'id' => 'id-number-manage'
                     ]) ?>
@@ -348,10 +348,10 @@
                         'label' => false,
                         'id' => 'position-manage'
                     ]) ?>
-                    <label>Email Address</label>
+                    <label>DepEd Email Address</label>
                     <?= $this->Form->control('email_address', [
                         'class' => 'form-control',
-                        'placeholder' => 'Email Address',
+                        'placeholder' => 'DepEd Email Address',
                         'label' => false,
                         'type' => 'email',
                         'id' => 'email-address-manage'
@@ -398,10 +398,10 @@
                         <img id="esignature-preview" alt="E-Signature Preview" style="max-width: 180px; max-height: 80px; height: auto; border: 1px solid #d0d0d0; padding: 2px;">
                     </div>
                     <div id="manage-password-fields">
-                        <label>Email Address</label>
+                        <label>DepEd Email Address</label>
                         <?= $this->Form->control('reset_email', [
                             'class' => 'form-control',
-                            'placeholder' => 'Email Address',
+                            'placeholder' => 'DepEd Email Address',
                             'label' => false,
                             'type' => 'email',
                             'id' => 'reset-email'
@@ -438,10 +438,10 @@
             </div>
             <div class="modal-body">
                 <div class="mb-2"><strong>Username:</strong> <span id="view-username">—</span></div>
-                <div class="mb-2"><strong>ID Number:</strong> <span id="view-id-number">—</span></div>
+                <div class="mb-2"><strong>DepEd Employee ID Number:</strong> <span id="view-id-number">—</span></div>
                 <div class="mb-2"><strong>Full Name:</strong> <span id="view-fullname">—</span></div>
                 <div class="mb-2"><strong>Position:</strong> <span id="view-position">—</span></div>
-                <div class="mb-2"><strong>Email Address:</strong> <span id="view-email">—</span></div>
+                <div class="mb-2"><strong>DepEd Email Address:</strong> <span id="view-email">—</span></div>
                 <div class="mb-2"><strong>Office:</strong> <span id="view-office">—</span></div>
                 <div class="mb-2"><strong>Section/Unit:</strong> <span id="view-section-unit">—</span></div>
                 <div class="mb-2"><strong>Role:</strong> <span id="view-role">—</span></div>
@@ -454,3 +454,6 @@
         </div>
     </div>
 </div>
+
+
+

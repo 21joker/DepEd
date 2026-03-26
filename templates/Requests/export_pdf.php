@@ -401,7 +401,7 @@ body {
         <div class="sub">SCHOOLS DIVISION OF SANTIAGO CITY</div>
         <hr class="divider">
         <div class="small" style="margin-top:8px;">Enclosure 1</div>
-        <div class="main">Activity Proposal</div>
+        <div class="main"><?= h($pageTitle ?? 'Activity Proposal') ?></div>
         <div class="small">For GAS-MOOE and Centrally Managed and Funded Activities</div>
     </div>
 

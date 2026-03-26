@@ -89,13 +89,37 @@
                     <input type="text" class="form-control" id="forgot-username" placeholder="Username">
                 </div>
                 <div class="form-group mb-0">
-                    <label>Email Address/Contact Number</label>
+                    <label>DepEd Email Address/Contact Number</label>
                     <input type="text" class="form-control" id="forgot-contact" placeholder="Email or mobile">
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                 <button type="button" class="btn btn-primary" id="forgot-submit">Send Request</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="request-sent-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog request-sent-dialog" role="document">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-gradient-primary text-white">
+                <h5 class="modal-title">Request Sent</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="request-sent-icon mb-3">
+                    <i class="fas fa-paper-plane"></i>
+                </div>
+                <div class="request-sent-message" id="request-sent-message">
+                    Request sent to admin, please wait for the confirmation.
+                </div>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-primary px-4" data-dismiss="modal">OK</button>
             </div>
         </div>
     </div>
@@ -140,6 +164,9 @@ document.addEventListener('DOMContentLoaded', function () {
         var contact = document.getElementById('forgot-contact').value || '';
         var csrf = document.querySelector('meta[name="csrf-token"]');
         var token = csrf ? csrf.getAttribute('content') : '';
+        if (window.jQuery && $('#forgot-modal').length) {
+            $('#forgot-modal').modal('hide');
+        }
 
         fetch('<?= $this->Url->build(['controller' => 'Users', 'action' => 'forgotPassword']) ?>', {
             method: 'POST',
@@ -152,11 +179,25 @@ document.addEventListener('DOMContentLoaded', function () {
         })
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
-                alert(data.message || 'Request sent.');
+                var message = data.message || 'Request sent to admin, please wait for the confirmation.';
                 if (data.status === 'success') {
-                    $('#forgot-modal').modal('hide');
                     document.getElementById('forgot-username').value = '';
                     document.getElementById('forgot-contact').value = '';
+                    var msgEl = document.getElementById('request-sent-message');
+                    if (msgEl) {
+                        msgEl.textContent = message;
+                    }
+                    if (window.jQuery && $('#request-sent-modal').length) {
+                        $('#request-sent-modal').modal({
+                            backdrop: 'static',
+                            keyboard: false,
+                            show: true
+                        });
+                    } else {
+                        alert(message);
+                    }
+                } else {
+                    alert(message);
                 }
             })
             .catch(function () {
@@ -165,3 +206,31 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #0f5a6a 0%, #1b7f8f 50%, #2366a3 100%);
+}
+.request-sent-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto;
+    border-radius: 50%;
+    background: rgba(35, 102, 163, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #2366a3;
+    font-size: 28px;
+}
+.request-sent-message {
+    font-size: 1rem;
+    color: #2f3a45;
+}
+.request-sent-dialog {
+    margin: 4vh auto 0;
+}
+</style>
+
+
+

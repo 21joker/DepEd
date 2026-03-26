@@ -243,7 +243,7 @@ function _approval_label(?string $status): string
             <div class="small">Region II - Cagayan Valley</div>
             <div class="sub">SCHOOLS DIVISION OF SANTIAGO CITY</div>
             <div class="small mt-2">Enclosure 1</div>
-            <div class="main">Activity Proposal</div>
+            <div class="main"><?= h($proposalTitle ?? 'Activity Proposal') ?></div>
             <div class="small">For GAS-MOOE and Centrally Managed and Funded Activities</div>
           </div>
 

@@ -586,7 +586,6 @@
 
             <?php
                 $venueOptions = [
-                    '' => 'Modality',
                     'ONLINE' => 'ONLINE',
                     'In-Person' => 'In-Person',
                     'Hybrid' => 'Hybrid',
@@ -643,11 +642,15 @@
                 <div class="small">Region II - Cagayan Valley</div>
                 <div class="sub">SCHOOLS DIVISION OF SANTIAGO CITY</div>
                 <div class="small mt-2">Enclosure 1</div>
-                <div class="main">Activity Proposal</div>
+                <div class="main"><?= h($proposalTitle ?? 'Activity Proposal') ?></div>
                 <div class="small">For GAS-MOOE and Centrally Managed and Funded Activities</div>
             </div>
 
             <?= $this->Form->create($requestEntity, ['type' => 'file', 'id' => 'proposal-form']) ?>
+            <?= $this->Form->control('proposal_type', [
+                'type' => 'hidden',
+                'value' => $proposalTitle ?? 'Activity Proposal',
+            ]) ?>
             <table class="table proposal-table">
                 <thead>
                     <tr>
@@ -662,6 +665,8 @@
                             'id' => 'pmis-activity-code',
                             'data-prefix' => 'AC-',
                             'value' => !empty($requestEntity->pmis_activity_code) ? $requestEntity->pmis_activity_code : 'AC-',
+                            'pattern' => '^AC-\\d+$',
+                            'title' => 'Enter AC- followed by a number.',
                             'required' => true,
                         ]) ?></td>
                         <td>
@@ -674,6 +679,8 @@
                             ?>
                             <?= $this->Form->select('pmis_activity_office', $officeOptions, [
                                 'class' => 'form-control',
+                                'empty' => 'Choose division',
+                                'required' => true,
                             ]) ?>
                         </td>
                     </tr>
@@ -763,6 +770,7 @@
                                             'class' => 'form-control',
                                             'label' => false,
                                             'value' => $venueChoice,
+                                            'empty' => 'Choose modality',
                                             'required' => true,
                                         ]) ?>
                                     </div>
@@ -1083,7 +1091,7 @@
                                 ]) ?>
                             </div>
                             <div class="col-md-6">
-                                <label for="attachment-pd-proposal">PD PROPOSAL ATTACHMENT</label>
+                                <label for="attachment-pd-proposal"></label>
                                 <?= $this->Form->control('attachment_pd_proposal', [
                                     'type' => 'file',
                                     'label' => false,
@@ -1161,6 +1169,14 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
+        function validatePmis() {
+            var value = pmisInput.value || '';
+            var suffix = value.slice(pmisPrefix.length);
+            var valid = suffix.length > 0 && /^[0-9]+$/.test(suffix);
+            pmisInput.setCustomValidity(valid ? '' : 'Please enter AC- followed by a number.');
+            return valid;
+        }
+
         pmisInput.addEventListener('focus', function () {
             if (!pmisInput.value) {
                 pmisInput.value = pmisPrefix;
@@ -1182,9 +1198,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
         pmisInput.addEventListener('input', function () {
             enforcePmisPrefix();
+            validatePmis();
         });
 
         enforcePmisPrefix();
+        validatePmis();
+
+        if (pmisInput.form) {
+            pmisInput.form.addEventListener('submit', function (event) {
+                if (!validatePmis()) {
+                    event.preventDefault();
+                    pmisInput.reportValidity();
+                }
+            });
+        }
     }
 
     var bookedDatesUrl = <?= json_encode($this->Url->build('/request/booked-dates')) ?>;
