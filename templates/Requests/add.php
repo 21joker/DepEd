@@ -853,7 +853,7 @@
                             'class' => 'form-control',
                             'value' => !empty($requestEntity->monitoring_evaluation)
                                 ? $requestEntity->monitoring_evaluation
-                                : 'SHIRLYN R. MACASPAC PhD / ARCADIO L. MODUMO Jr.',
+                                : ($monitoringDefault ?? ''),
                             'readonly' => true,
                         ]) ?></td>
                     </tr>

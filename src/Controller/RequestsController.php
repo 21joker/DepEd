@@ -482,6 +482,7 @@ class RequestsController extends AppController
             }
         }
 
+        $monitoringDefault = $this->getMonitoringEvaluationDefault();
         $this->set(compact(
             'requestEntity',
             'admins',
@@ -499,7 +500,8 @@ class RequestsController extends AppController
             'userCounts',
             'showForm',
             'isEdit',
-            'proposalTitle'
+            'proposalTitle',
+            'monitoringDefault'
         ));
     }
 
@@ -961,6 +963,7 @@ class RequestsController extends AppController
 
         $showForm = true;
         $isEdit = true;
+        $monitoringDefault = $this->getMonitoringEvaluationDefault();
         $this->set(compact(
             'requestEntity',
             'admins',
@@ -973,7 +976,8 @@ class RequestsController extends AppController
             'requestSummaries',
             'showForm',
             'isEdit',
-            'proposalTitle'
+            'proposalTitle',
+            'monitoringDefault'
         ));
         $this->render('add');
     }
@@ -1700,7 +1704,20 @@ class RequestsController extends AppController
         $this->loadModel('Users');
         $adminId = (int)$this->Auth->user('id');
 
-        $hierarchy = $this->getApproverHierarchy();
+        $detailsSource = $requestEntity->details;
+        if ($detailsSource === null || trim((string)$detailsSource) === '') {
+            $detailsSource = $requestEntity->message ?? '';
+        }
+        $detailsFields = $this->extractFieldsFromDetails((string)$detailsSource);
+        $proposalTitle = trim((string)($detailsFields['Proposal Type'] ?? ''));
+        if ($proposalTitle === '') {
+            $proposalTitle = 'Activity Proposal';
+        }
+        $isPdProposal = strcasecmp($proposalTitle, 'PD Proposal') === 0;
+
+        $hierarchy = $isPdProposal
+            ? $this->getApproverHierarchyWithHrddAfterPo()
+            : $this->getApproverHierarchy();
         $currentUser = $this->Users->find()
             ->select(['id', 'username'])
             ->where(['id' => $adminId])
@@ -2192,8 +2209,7 @@ class RequestsController extends AppController
             return $this->orderApproverHierarchy($adminList);
         }
 
-        $hierarchy = $this->getApproverHierarchy();
-        $hierarchy = array_merge(['HRDD' => 0], $hierarchy);
+        $hierarchy = $this->getApproverHierarchyWithHrddAfterPo();
         $rankFor = function ($admin) use ($hierarchy): array {
             $label = strtoupper(trim((string)($admin->username ?? '')));
             $rank = $this->getApproverRank($label, $hierarchy);
@@ -2263,6 +2279,88 @@ class RequestsController extends AppController
             'ASDS' => 6,
             'SDS' => 7,
           ];
+      }
+
+      private function getApproverHierarchyWithHrddAfterPo(): array
+      {
+          $base = $this->getApproverHierarchy();
+          $keys = array_keys($base);
+          $finalKeys = [];
+          $inserted = false;
+          foreach ($keys as $key) {
+              $finalKeys[] = $key;
+              if ($key === 'PO') {
+                  $finalKeys[] = 'HRDD';
+                  $inserted = true;
+              }
+          }
+          if (!$inserted) {
+              array_unshift($finalKeys, 'HRDD');
+          }
+          $final = [];
+          $rank = 1;
+          foreach ($finalKeys as $key) {
+              if (!isset($final[$key])) {
+                  $final[$key] = $rank;
+                  $rank++;
+              }
+          }
+          return $final;
+      }
+
+      private function getMonitoringEvaluationDefault(): string
+      {
+          try {
+              $this->loadModel('Users');
+              $targets = ['SMMNE', 'SMMNE1'];
+              $admins = $this->Users->find()
+                  ->select(['username', 'first_name', 'middle_initial', 'last_name', 'suffix', 'degree'])
+                  ->where(['role IN' => ['Administrator', 'Approver']])
+                  ->all();
+              $byUsername = [];
+              foreach ($admins as $admin) {
+                  $label = strtoupper(trim((string)($admin->username ?? '')));
+                  if ($label !== '') {
+                      $byUsername[$label] = $admin;
+                  }
+              }
+              $names = [];
+              foreach ($targets as $target) {
+                  if (!isset($byUsername[$target])) {
+                      continue;
+                  }
+                  $display = $this->formatUserDisplayName($byUsername[$target]);
+                  if ($display === '') {
+                      $display = $target;
+                  }
+                  $names[] = $display;
+              }
+              return trim(implode(' / ', $names));
+          } catch (\Throwable $e) {
+              return '';
+          }
+      }
+
+      private function formatUserDisplayName($user): string
+      {
+          $first = trim((string)($user->first_name ?? ''));
+          $middle = trim((string)($user->middle_initial ?? ''));
+          if ($middle !== '') {
+              $middle = rtrim($middle, '.') . '.';
+          }
+          $last = trim((string)($user->last_name ?? ''));
+          $suffix = trim((string)($user->suffix ?? ''));
+          $degree = trim((string)($user->degree ?? ''));
+
+          $parts = array_filter([$first, $middle, $last], 'strlen');
+          $name = trim(implode(' ', $parts));
+          if ($suffix !== '') {
+              $name = trim($name . ' ' . $suffix);
+          }
+          if ($degree !== '') {
+              $name = trim($name . ' ' . $degree);
+          }
+          return strtoupper($name);
       }
 
       private function findLatestEsignature(int $userId): ?string
