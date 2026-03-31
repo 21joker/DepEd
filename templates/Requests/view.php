@@ -380,7 +380,7 @@ function _approval_label(?string $status): string
                 $badge = _approval_badge_class($status);
                 $label = _approval_label($status);
                 $displayName = (string)($admin->username ?? '');
-                if (strcasecmp($displayName, 'SMMNE') === 0) {
+                if (strcasecmp($displayName, 'SMMNE') === 0 || strcasecmp($displayName, 'SMMNE1') === 0) {
                     $displayName = 'SMM&E';
                 } elseif (strcasecmp($displayName, 'AO') === 0) {
                     $displayName = 'AO';
@@ -402,7 +402,7 @@ function _approval_label(?string $status): string
                   continue;
               }
               $reviewer = $approval->user->username ?? null;
-              if (is_string($reviewer) && strcasecmp($reviewer, 'SMMNE') === 0) {
+              if (is_string($reviewer) && (strcasecmp($reviewer, 'SMMNE') === 0 || strcasecmp($reviewer, 'SMMNE1') === 0)) {
                   $reviewer = 'SMM&E';
               } elseif (is_string($reviewer) && strcasecmp($reviewer, 'AO') === 0) {
                   $reviewer = 'AO';

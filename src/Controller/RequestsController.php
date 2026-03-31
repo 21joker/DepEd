@@ -1350,7 +1350,7 @@ class RequestsController extends AppController
                 foreach ($remarkRows as $row) {
                     $adminId = (int)($row['admin_user_id'] ?? 0);
                     $reviewerName = $userMap[$adminId] ?? 'Reviewer';
-                    if (is_string($reviewerName) && strcasecmp($reviewerName, 'SMMNE') === 0) {
+                    if (is_string($reviewerName) && (strcasecmp($reviewerName, 'SMMNE') === 0 || strcasecmp($reviewerName, 'SMMNE1') === 0)) {
                         $reviewerName = 'SMM&E';
                     }
                     $remarksList[] = [
@@ -2202,6 +2202,10 @@ class RequestsController extends AppController
             ->orderAsc('id')
             ->all();
         $adminList = is_array($admins) ? $admins : iterator_to_array($admins, false);
+        $adminList = array_values(array_filter($adminList, function ($admin): bool {
+            $label = strtoupper(trim((string)($admin->username ?? '')));
+            return $label !== 'SMMNE1';
+        }));
         if ($includeHrdd) {
             $adminList = $this->appendApproverByUsername($adminList, 'HRDD');
         }
@@ -2312,7 +2316,7 @@ class RequestsController extends AppController
       {
           try {
               $this->loadModel('Users');
-              $targets = ['SMMNE', 'SMMNE1'];
+              $targets = ['SMMNE'];
               $admins = $this->Users->find()
                   ->select(['username', 'first_name', 'middle_initial', 'last_name', 'suffix', 'degree'])
                   ->where(['role IN' => ['Administrator', 'Approver']])
